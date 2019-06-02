@@ -160,8 +160,8 @@ class BuildPage(tk.Frame):
     def replaceKeywordWithCodeMQTT(self, src, keyword, array):
         tempreplacement = ""
         for element in array[:-1]:
-            tempreplacement = tempreplacement + '"' +element + '"' + ',' + "\r\n"
-        tempreplacement = tempreplacement + '"' + array[-1] + '"' + "\r\n"
+            tempreplacement = tempreplacement + element + ',' + "\r\n"
+        tempreplacement = tempreplacement + array[-1] + "\r\n"
         result = src.replace(keyword,tempreplacement)
         return result
 
@@ -236,11 +236,9 @@ class BuildPage(tk.Frame):
         template_path, template_lastfolder = split(self.settings_data['templateFolderPath'])
         fullResultFolderPath = join(self.settings_data['resultFolderPath'],template_lastfolder)
 
-        var = "board --help"
-
-
-        system('dir')
-        print(name)
+        print("OS Type:" + name)
+        system("cd " + fullResultFolderPath + "&" + "dir")
+        
         print("arduino-cli.exe compile --fqbn esp8266:esp8266:d1_mini " + fullResultFolderPath + " --build-path " + self.settings_data['buildFolderPath'])
         system("arduino-cli.exe compile --fqbn esp8266:esp8266:d1_mini " + fullResultFolderPath + " --build-path " + self.settings_data['buildFolderPath'])
 
