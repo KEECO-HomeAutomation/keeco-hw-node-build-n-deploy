@@ -4,7 +4,7 @@ from tkinter import ttk
 import json
 import errno
 import shutil
-from os import listdir, mkdir
+from os import listdir, mkdir, system, name
 from os.path import isfile, isdir, join, dirname, realpath, split
 from tkinter import filedialog
 
@@ -156,10 +156,21 @@ class BuildPage(tk.Frame):
         for var in vars:
             result = result + var['Variable Initialisation'].replace(var['Name'],var['Alias']) + "\r\n"
         return result
-    def replaceKeywordWithCode(self, keyword, array):
-        tempstring = ""
+
+    def replaceKeywordWithCodeMQTT(self, src, keyword, array):
+        tempreplacement = ""
+        for element in array[:-1]:
+            tempreplacement = tempreplacement + '"' +element + '"' + ',' + "\r\n"
+        tempreplacement = tempreplacement + '"' + array[-1] + '"' + "\r\n"
+        result = src.replace(keyword,tempreplacement)
+        return result
+
+    def replaceKeywordWithCode(self, src, keyword, array):
+        tempreplacement = ""
         for element in array:
-            
+            tempreplacement = tempreplacement + element + "\r\n"
+        result = src.replace(keyword,tempreplacement)
+        return result
 
     def generateCode(self):
         includes = []
@@ -184,9 +195,6 @@ class BuildPage(tk.Frame):
         manage_IO_Path = join(fullResultFolderPath, 'Manage_IO.ino')
         MQTT_Path = join(fullResultFolderPath, 'MQTT.ino')
 
-        print(manage_IO_Path)
-        print(MQTT_Path)
-
         with open(manage_IO_Path) as manageIO_file:
             manageIO_content = manageIO_file.read()
 
@@ -205,6 +213,36 @@ class BuildPage(tk.Frame):
             readinput.append(self.changeNameToAlias(plugin['ReadInput'],plugin['Variables']))
             setoutput.append(self.changeNameToAlias(plugin['Setoutput'],plugin['Variables']))
             dependencies.append(plugin['Dependencies'])
+
+        MQTT_content = self.replaceKeywordWithCodeMQTT(MQTT_content, "//@mqttSubTopics@", mqtt_sub)
+        manageIO_content = self.replaceKeywordWithCode(manageIO_content, "//@includes@", includes)
+        manageIO_content = self.replaceKeywordWithCode(manageIO_content, "//@globalvars@", var_init)
+        manageIO_content = self.replaceKeywordWithCode(manageIO_content, "//@initIOcode@", init)
+        manageIO_content = self.replaceKeywordWithCode(manageIO_content, "//@readIOcode@", readinput)
+        manageIO_content = self.replaceKeywordWithCode(manageIO_content, "//@publishIOcode@", publish)
+        manageIO_content = self.replaceKeywordWithCode(manageIO_content, "//@setOutputscode@", setoutput)
+
+        with open(manage_IO_Path, "w") as f:
+            f.write(manageIO_content)
+        with open(MQTT_Path, "w") as f:
+            f.write(MQTT_content)
+        print(MQTT_content)
+        print(manageIO_content)
+        print("Code has been created successfully!")
+
+    def buildBinary(self):
+        with open('settings.json') as json_file:
+            self.settings_data = json.load(json_file)
+        template_path, template_lastfolder = split(self.settings_data['templateFolderPath'])
+        fullResultFolderPath = join(self.settings_data['resultFolderPath'],template_lastfolder)
+
+        var = "board --help"
+
+
+        system('dir')
+        print(name)
+        print("arduino-cli.exe compile --fqbn esp8266:esp8266:d1_mini " + fullResultFolderPath + " --build-path " + self.settings_data['buildFolderPath'])
+        system("arduino-cli.exe compile --fqbn esp8266:esp8266:d1_mini " + fullResultFolderPath + " --build-path " + self.settings_data['buildFolderPath'])
 
     def __init__(self, master):
         tk.Frame.__init__(self, master)
@@ -238,6 +276,7 @@ class BuildPage(tk.Frame):
         self.tree.pack(side=tk.TOP,fill=tk.X)
         tk.Button(self, text="Delete Selected Plugin", command=lambda: self.deletePlugin(self.tree)).pack()
         tk.Button(self, text="Generate Code", command=lambda: self.generateCode()).pack()
+        tk.Button(self, text="Build Wemos Binary", command=lambda: self.buildBinary()).pack()
 
 
 class DeployPage(tk.Frame):
