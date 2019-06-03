@@ -162,8 +162,11 @@ class BuildPage(tk.Frame):
         for element in array[:-1]:
             tempreplacement = tempreplacement + element + ',' + "\r\n"
         tempreplacement = tempreplacement + array[-1] + "\r\n"
+        num_of_MQTT_topics = tempreplacement.count(',')
         result = src.replace(keyword,tempreplacement)
+        result = result.replace("int mqttSubTopicCount = 0;", "int mqttSubTopicCount = " + str(num_of_MQTT_topics+1) + ";")
         return result
+
 
     def replaceKeywordWithCode(self, src, keyword, array):
         tempreplacement = ""
@@ -240,7 +243,11 @@ class BuildPage(tk.Frame):
         system("cd " + fullResultFolderPath + "&" + "dir")
 
         print("arduino-cli.exe compile --fqbn esp8266:esp8266:d1_mini " + fullResultFolderPath + " --build-path " + self.settings_data['buildFolderPath'])
-        system("arduino-cli.exe compile --fqbn esp8266:esp8266:d1_mini " + fullResultFolderPath + " --build-path " + self.settings_data['buildFolderPath'])
+        res = system("arduino-cli.exe compile --fqbn esp8266:esp8266:d1_mini " + fullResultFolderPath + " --build-path " + self.settings_data['buildFolderPath'])
+        if (res == 0):
+            print("BUILD SUCCESSFULLY FINISHED! You can deploy your binary now!")
+        else:
+            print("Build was not successful! Error code: " + str(res) + " For details see the console above...")
 
     def __init__(self, master):
         tk.Frame.__init__(self, master)
