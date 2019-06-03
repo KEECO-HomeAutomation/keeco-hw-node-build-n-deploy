@@ -26,10 +26,10 @@ class MainPage(tk.Frame):
     def __init__(self, master):
         tk.Frame.__init__(self, master)
         tk.Label(self, text="KEECO HW Node App Generator v0.1").pack(side="top", fill="x", pady=10)
-        tk.Button(self, text="Select PlugIns", command=lambda: master.switch_frame(PlugInSelectPage)).pack()
-        tk.Button(self, text="Build Application", command=lambda: master.switch_frame(BuildPage)).pack()
-        tk.Button(self, text="Deploy Application", command=lambda: master.switch_frame(DeployPage)).pack()
-        tk.Button(self, text="Configuration", command=lambda: master.switch_frame(ConfigPage)).pack()
+        tk.Button(self, text="Select PlugIns", width=60, command=lambda: master.switch_frame(PlugInSelectPage)).pack()
+        tk.Button(self, text="Build Application", width=60, command=lambda: master.switch_frame(BuildPage)).pack()
+        tk.Button(self, text="Deploy Application", width=60, command=lambda: master.switch_frame(DeployPage)).pack()
+        tk.Button(self, text="Configuration", width=60, command=lambda: master.switch_frame(ConfigPage)).pack()
 
 class PlugInSelectPage(tk.Frame):
     def openPlugin(self, lb):
@@ -238,7 +238,7 @@ class BuildPage(tk.Frame):
 
         print("OS Type:" + name)
         system("cd " + fullResultFolderPath + "&" + "dir")
-        
+
         print("arduino-cli.exe compile --fqbn esp8266:esp8266:d1_mini " + fullResultFolderPath + " --build-path " + self.settings_data['buildFolderPath'])
         system("arduino-cli.exe compile --fqbn esp8266:esp8266:d1_mini " + fullResultFolderPath + " --build-path " + self.settings_data['buildFolderPath'])
 
@@ -305,10 +305,10 @@ class ConfigPage(tk.Frame):
         self.resultFolderPath = EntryWithBrowse(self, "Result Path")
         self.buildFolderPath = EntryWithBrowse(self, "Build Path")
 
-        self.pluginPath.grid(row=4, sticky="w")
-        self.templateFolderPath.grid(row=5, sticky="w")
-        self.resultFolderPath.grid(row=6, sticky="w")
-        self.buildFolderPath.grid(row=7, sticky="w")
+        self.pluginPath.grid(row=4, sticky="e")
+        self.templateFolderPath.grid(row=5, sticky="e")
+        self.resultFolderPath.grid(row=6, sticky="e")
+        self.buildFolderPath.grid(row=7, sticky="e")
 
         self.pluginPath.setEntryValue(self.data['pluginFolderPath'])
         self.templateFolderPath.setEntryValue(self.data['templateFolderPath'])
@@ -328,7 +328,7 @@ class EntryWithBrowse(tk.Frame):
         self.name = Name
         self.var = tk.StringVar()
         self.w = tk.Label(self, text=self.name)
-        self.e = tk.Entry(self, textvariable=self.var)
+        self.e = tk.Entry(self, textvariable=self.var, width=100)
         self.b = tk.Button(self, text="Browse", command=lambda:self.var.set(filedialog.askdirectory()))
         self.w.grid(row=0, column=0, columnspan=3)
         self.e.grid(row=0, column=3, columnspan=5)
