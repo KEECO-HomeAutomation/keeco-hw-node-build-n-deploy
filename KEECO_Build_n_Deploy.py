@@ -50,7 +50,7 @@ class PlugInSelectPage(tk.Frame):
         tk.Frame.__init__(self, master)
         tk.Label(self, text="PlugIn Selector").pack(side="top", fill="x", pady=10)
         tk.Button(self, text="Return to Main Page", command=lambda: master.switch_frame(MainPage)).pack()
-        lb = tk.Listbox(self)
+        lb = tk.Listbox(self, width=100)
         avalPlugins = [f for f in listdir(self.pluginDirPath) if isfile(join(self.pluginDirPath, f))]
         for plugin in avalPlugins:
             lb.insert(0, plugin)
@@ -74,7 +74,7 @@ class PlugInSelectPage(tk.Frame):
             print(var['Name'])
             print(var['Description'])
             print(var['Variable Initialisation'])
-        self.b = tk.Button(t, text="Apply parameters and Add plugin to poject", command=lambda: self.addPluginToList(dynamicEntries, pluginData, selectedPlugIn))
+        self.b = tk.Button(t, text="Apply parameters and Add plugin to project", command=lambda: self.addPluginToList(dynamicEntries, pluginData, selectedPlugIn))
         self.b.pack()
 
     def addPluginToList(self, entries, plugindata, path):
@@ -245,7 +245,7 @@ class BuildPage(tk.Frame):
     def __init__(self, master):
         tk.Frame.__init__(self, master)
         tk.Label(self, text="App Builder").pack(side="top", fill="x", pady=10)
-        tk.Button(self, text="Return to Main Page",
+        tk.Button(self, text="Return to Main Page", width=60,
                   command=lambda: master.switch_frame(MainPage)).pack()
         if (isfile('temp_plugins.json')):
             with open('temp_plugins.json') as temp_plugin_file:
@@ -272,9 +272,9 @@ class BuildPage(tk.Frame):
                 print(str(idx) + var['Name'] + var['Alias'])
                 self.tree.insert(self.treeitems[idx], "end", text=var['Name'], values=(var['Alias'],"",""))
         self.tree.pack(side=tk.TOP,fill=tk.X)
-        tk.Button(self, text="Delete Selected Plugin", command=lambda: self.deletePlugin(self.tree)).pack()
-        tk.Button(self, text="Generate Code", command=lambda: self.generateCode()).pack()
-        tk.Button(self, text="Build Wemos Binary", command=lambda: self.buildBinary()).pack()
+        tk.Button(self, text="Delete Selected Plugin", width=60, command=lambda: self.deletePlugin(self.tree)).pack()
+        tk.Button(self, text="Generate Code", width=60, command=lambda: self.generateCode()).pack()
+        tk.Button(self, text="Build Wemos Binary", width=60, command=lambda: self.buildBinary()).pack()
 
 
 class DeployPage(tk.Frame):
