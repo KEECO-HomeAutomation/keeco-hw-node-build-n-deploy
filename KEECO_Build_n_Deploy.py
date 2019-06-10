@@ -339,6 +339,7 @@ class PlugInCreatePage(tk.Frame):
         tk.Frame.__init__(self, master)
         self.variables = list()
         self.dependencies = list()
+        self.iotype = tk.StringVar()
 
         self.canvas = tk.Canvas(self, bd=0, width=1024, height=768)
         self.frame_in_canvas = tk.Frame(self.canvas)
@@ -355,10 +356,10 @@ class PlugInCreatePage(tk.Frame):
         self.frame_in_canvas.bind("<Configure>", self.onFrameConfigure)
 
         tk.Label(self.frame_in_canvas, text="Create PlugIn").grid(row=0, column=0)
-        tk.Button(self.frame_in_canvas, text="Return to Main Page", command=lambda: master.switch_frame(MainPage)).grid()
-        tk.Button(self.frame_in_canvas, text='Open Plugin', command=lambda: self.openPlugin()).grid()
-        tk.Button(self.frame_in_canvas, text='Save Plugin', command=lambda: self.savePlugin()).grid()
-        tk.Button(self.frame_in_canvas, text="Add Variable", command=lambda: self.addVariable(self.variables_frame)).grid()
+        tk.Button(self.frame_in_canvas, text="Return to Main Page", width = 70, command=lambda: master.switch_frame(MainPage)).grid()
+        tk.Button(self.frame_in_canvas, text='Open Plugin', width = 70, command=lambda: self.openPlugin()).grid()
+        tk.Button(self.frame_in_canvas, text='Save Plugin', width = 70, command=lambda: self.savePlugin()).grid()
+        tk.Button(self.frame_in_canvas, text="Add Variable", width = 70, command=lambda: self.addVariable(self.variables_frame)).grid()
         tk.Label(self.frame_in_canvas, text="Includes - Add complete include line, for example: #include <ESP8266WiFi.h> \r You can add multiple include lines as well.").grid()
         self.includesEntry = tkst.ScrolledText(self.frame_in_canvas, width=100, height=5)
         self.includesEntry.grid()
@@ -380,13 +381,12 @@ class PlugInCreatePage(tk.Frame):
         self.setOutputEntry = tkst.ScrolledText(self.frame_in_canvas, width=100, height=5)
         self.setOutputEntry.grid()
         tk.Label(self.frame_in_canvas, text="I/O Type - Define the Template Name how this I/O should appear in your KEECO System. See details on GitHub - keeco-hub!").grid()
-        self.ioType = tk.StringVar()
-        self.ioTypeEntry = tk.Entry(self.frame_in_canvas, textvariable=self.ioType, width=100 )
+        self.ioTypeEntry = tk.Entry(self.frame_in_canvas, textvariable=self.iotype, width=100)
         self.ioTypeEntry.grid()
         tk.Label(self.frame_in_canvas, text="Dependenices - Required dependencies for your plugin will be automatically installed. \r Use the name format of the requiered library how it appears with arduino-cli lib list - replace _(underscores) with space ").grid()
         self.dependencies_frame.grid()
         self.addDependency(self.dependencies_frame)
-        tk.Button(self.frame_in_canvas, text="Add Dependency", command=lambda: self.addDependency(self.dependencies_frame)).grid()
+        tk.Button(self.frame_in_canvas, text="Add Dependency", width = 70, command=lambda: self.addDependency(self.dependencies_frame)).grid()
 
     def onFrameConfigure(self, event):
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
@@ -419,7 +419,7 @@ class PlugInCreatePage(tk.Frame):
             self.publishEntry.insert(1.0, plugin['Publish'])
             self.readIOEntry.insert(1.0, plugin['ReadInput'])
             self.setOutputEntry.insert(1.0, plugin['Setoutput'])
-            self.ioType = plugin['IO Type']
+            self.ioTypeEntry.insert(0, plugin['IO Type'])
             for widget in self.dependencies:
                 widget.grid_forget()
             del self.dependencies[:]
@@ -430,6 +430,26 @@ class PlugInCreatePage(tk.Frame):
 
     def savePlugin(self):
         filename =  filedialog.asksaveasfilename(initialdir = "/",title = "Select Plug-in to Save",filetypes = (("plugin files","*.json"),("all files","*.*")))
+        varlist = list()
+        deplist = list()
+        pluginData = dict()
+
+        for var in self.variables:
+            varlist.append(var.getEntryValue())
+        pluginData['Variables'] = varlist
+        pluginData['MQTT Subscriptions'] = self.mqttSubEntry.get(1.0, 'end')
+        pluginData['Includes'] = self.includesEntry.get(1.0, 'end')
+        pluginData['Init'] = self.initEntry.get(1.0, 'end')
+        pluginData['Publish'] = self.publishEntry.get(1.0, 'end')
+        pluginData['ReadInput'] = self.readIOEntry.get(1.0, 'end')
+        pluginData['Setoutput'] = self.setOutputEntry.get(1.0, 'end')
+        pluginData['IO Type'] = self.ioTypeEntry.get()
+        for dep in self.dependencies:
+            deplist.append(dep.getEntryValue())
+        pluginData['Dependencies'] = deplist
+
+        with open(filename, 'w') as plugin_file:
+            json.dump(pluginData, plugin_file)
 
 class EntryWithBrowse(tk.Frame):
     def __init__(self, parent, Name):
@@ -490,10 +510,11 @@ class VariableTextboxes(tk.Frame):
         del varlist[to_be_deleted]
 
     def getEntryValue(self):
-        self.result['Name'] = self.name.get()
-        self.result['Description'] = self.description.get()
-        self.result['Variable Initialisation'] = self.variableInitBox.get(1.0, tk.END)
-        return self.result
+        result = dict()
+        result['Name'] = self.name.get()
+        result['Description'] = self.description.get()
+        result['Variable Initialisation'] = self.variableInitBox.get(1.0, tk.END)
+        return result
 
     def setEntryValue(self, value):
         self.name.set(value['Name'])
