@@ -338,10 +338,13 @@ class PlugInCreatePage(tk.Frame):
     def __init__(self, master):
         tk.Frame.__init__(self, master)
         self.variables = list()
+        self.dependencies = list()
 
-        self.canvas = tk.Canvas(self, bd=0, width=900, height=768)
+        self.canvas = tk.Canvas(self, bd=0, width=1024, height=768)
         self.frame_in_canvas = tk.Frame(self.canvas)
         self.variables_frame = tk.Frame(self.frame_in_canvas)
+        self.dependencies_frame = tk.Frame(self.frame_in_canvas)
+
         self.yscrollbar = tk.Scrollbar(self, orient='vertical', command=self.canvas.yview )
         self.canvas.configure(yscrollcommand=self.yscrollbar.set)
 
@@ -359,7 +362,29 @@ class PlugInCreatePage(tk.Frame):
         self.includesEntry.grid()
         self.variables_frame.grid()
         self.addVariable(self.variables_frame)
-
+        tk.Label(self.frame_in_canvas, text="MQTT Subscriptions - Add your MQTT Subscription topics here. If multiple topics are to be included use a ,(comma) to seperate them and make sure not to put a \",\" after the last one! \r Topics should be included in this format: \" node/UUID_PLACEHOLDER/@TOPIC@ \" - where \"@TOPIC@\" is your symbol for the actual topic in the variable definitions. \r The \" UUID_PLACEHOLDER \" will be replaced on the KEECO HW Node in run-time as the UUID is stored in the device's EEPROM").grid()
+        self.mqttSubEntry = tkst.ScrolledText(self.frame_in_canvas, width=100, height=5)
+        self.mqttSubEntry.grid()
+        tk.Label(self.frame_in_canvas, text="Initialisation - Place your code here that initialises your hardware add-ons / I/O on the Wemos. The code placed here will be called during Wemos's setup() function. \r Please note that the variable init should happen outside of this segment and be defined in the variables input field's Init box.").grid()
+        self.initEntry = tkst.ScrolledText(self.frame_in_canvas, width=100, height=5)
+        self.initEntry.grid()
+        tk.Label(self.frame_in_canvas, text="Publish - Place your code here that publishes information via the MQTT Client. You must use the client.publish(topic, data_char_arr, 1) function to publish data. \r Topic should be a symbol defined in the Variables field, \"1\" is the MQTT QoS. \r For your comfort we have created a \"char tempstr[128]\" that can be used with the itoa() function to do data type conversion for the publish() function. \r The tempstr[] variable is shared accross plugins but in this segment no other plugin can access it. \r This code is called every 5 seconds. Don't place code here that takes significant amount of time to execute. Publish values from variables stored in the Read I/O segment.").grid()
+        self.publishEntry = tkst.ScrolledText(self.frame_in_canvas, width=100, height=5)
+        self.publishEntry.grid()
+        tk.Label(self.frame_in_canvas, text="Read I/O - Place your code here to read inputs on your Wemos. This part can be used to store values to variables for the MQTT Publish() function, \r or you can explicitly call Publish() to publish changes.").grid()
+        self.readIOEntry = tkst.ScrolledText(self.frame_in_canvas, width=100, height=5)
+        self.readIOEntry.grid()
+        tk.Label(self.frame_in_canvas, text="Set Output - Place your code here to set outputs. Code here will be called in a function which is a callback \r function called when a new MQTT message is detected for any of the subscribed topics. \r The code below is placed in function whose signature is: \"setOutputs(char* topic, byte* payload, unsigned int length\")").grid()
+        self.setOutputEntry = tkst.ScrolledText(self.frame_in_canvas, width=100, height=5)
+        self.setOutputEntry.grid()
+        tk.Label(self.frame_in_canvas, text="I/O Type - Define the Template Name how this I/O should appear in your KEECO System. See details on GitHub - keeco-hub!").grid()
+        self.ioType = tk.StringVar()
+        self.ioTypeEntry = tk.Entry(self.frame_in_canvas, textvariable=self.ioType, width=100 )
+        self.ioTypeEntry.grid()
+        tk.Label(self.frame_in_canvas, text="Dependenices - Required dependencies for your plugin will be automatically installed. \r Use the name format of the requiered library how it appears with arduino-cli lib list - replace _(underscores) with space ").grid()
+        self.dependencies_frame.grid()
+        self.addDependency(self.dependencies_frame)
+        tk.Button(self.frame_in_canvas, text="Add Dependency", command=lambda: self.addDependency(self.dependencies_frame)).grid()
 
     def onFrameConfigure(self, event):
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
@@ -367,6 +392,11 @@ class PlugInCreatePage(tk.Frame):
     def addVariable(self, parent):
         self.variables.append(VariableTextboxes(parent, self.variables))
         self.variables[-1].grid()
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+    def addDependency(self, parent):
+        self.dependencies.append(DependencyEntry(parent, self.dependencies))
+        self.dependencies[-1].grid()
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
 
@@ -404,7 +434,6 @@ class EntryWithLabel(tk.Frame):
 
 class VariableTextboxes(tk.Frame):
     def __init__(self, parent, varlist):
-        self.variablesList = varlist
         tk.Frame.__init__(self, parent)
         self.l1 = tk.Label(self, text="Variable Name - Choose a unique symbol that will be replaced by User given alias, for example: @var@ ")
         self.l2 = tk.Label(self, text="Variable Description - This text will be displayed when asking for user input for this variable")
@@ -420,14 +449,14 @@ class VariableTextboxes(tk.Frame):
         self.descriptionBox.grid()
         self.l3.grid()
         self.variableInitBox.grid()
-        self.delButton = tk.Button(self, text="Delete this Variable", bg='red', command= lambda:self.delete())
+        self.delButton = tk.Button(self, text="Delete this Variable", bg='red', command= lambda:self.delete(varlist))
         self.delButton.grid()
 
-    def delete(self):
+    def delete(self, varlist):
         self.grid_forget()
-        to_be_deleted = self.variablesList.index(self)
+        to_be_deleted = varlist.index(self)
         print (to_be_deleted)
-        del self.variablesList[to_be_deleted]
+        del varlist[to_be_deleted]
 
     def getEntryValue(self):
         self.result['Name'] = self.name.get()
@@ -440,6 +469,29 @@ class VariableTextboxes(tk.Frame):
         self.description.set(value['Description'])
         self.variableInitBox.insert(1.0, value['Variable Initialisation'])
 
+class DependencyEntry(tk.Frame):
+    def __init__(self, parent, varlist):
+        #self.variablesList = varlist
+        tk.Frame.__init__(self, parent)
+        tk.Label(self, text="Dependency").grid()
+        self.dependency = tk.StringVar()
+        self.dependencyBox = tk.Entry(self, textvariable=self.dependency, width=100)
+        self.dependencyBox.grid()
+
+        self.delButton = tk.Button(self, text="Delete this Dependency", bg='red', command= lambda:self.delete(varlist))
+        self.delButton.grid()
+
+    def delete(self, varlist):
+        self.grid_forget()
+        to_be_deleted = varlist.index(self)
+        print (to_be_deleted)
+        del varlist[to_be_deleted]
+
+    def getEntryValue(self):
+        return self.dependency.get()
+
+    def setEntryValue(self, value):
+        self.name.set(value)
 
 if __name__ == "__main__":
     pluginList = []
