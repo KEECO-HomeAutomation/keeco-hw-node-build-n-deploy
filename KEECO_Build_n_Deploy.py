@@ -7,6 +7,8 @@ import shutil
 from os import listdir, mkdir, system, name
 from os.path import isfile, isdir, join, dirname, realpath, split
 from tkinter import filedialog
+import tkinter.scrolledtext as tkst
+
 
 class SampleApp(tk.Tk):
     def __init__(self):
@@ -25,11 +27,13 @@ class SampleApp(tk.Tk):
 class MainPage(tk.Frame):
     def __init__(self, master):
         tk.Frame.__init__(self, master)
-        tk.Label(self, text="KEECO HW Node App Generator v0.1").pack(side="top", fill="x", pady=10)
-        tk.Button(self, text="Select PlugIns", width=60, command=lambda: master.switch_frame(PlugInSelectPage)).pack()
-        tk.Button(self, text="Build Application", width=60, command=lambda: master.switch_frame(BuildPage)).pack()
-        tk.Button(self, text="Deploy Application", width=60, command=lambda: master.switch_frame(DeployPage)).pack()
-        tk.Button(self, text="Configuration", width=60, command=lambda: master.switch_frame(ConfigPage)).pack()
+        tk.Label(self, text="KEECO HW Node App Generator v0.1").grid()
+        tk.Button(self, text="Select Plug-Ins", width=60, command=lambda: master.switch_frame(PlugInSelectPage)).grid()
+        tk.Button(self, text="Build Application", width=60, command=lambda: master.switch_frame(BuildPage)).grid()
+        tk.Button(self, text="Deploy Application", width=60, command=lambda: master.switch_frame(DeployPage)).grid()
+        tk.Button(self, text="Configuration", width=60, command=lambda: master.switch_frame(ConfigPage)).grid()
+        tk.Label(self, text="Advanced Features").grid()
+        tk.Button(self, text="Create Plug-Ins", width=60, command=lambda: master.switch_frame(PlugInCreatePage)).grid()
 
 class PlugInSelectPage(tk.Frame):
     def openPlugin(self, lb):
@@ -38,7 +42,7 @@ class PlugInSelectPage(tk.Frame):
         selectedPlugIn = join(DirPath, CurrSel)
         text = tk.Text(self)
         text.insert('insert', selectedPlugIn)
-        text.pack(side="bottom", pady=10)
+        text.grid(side="bottom", pady=10)
 
     def __init__(self, master):
         if (isfile('settings.json')):
@@ -48,14 +52,15 @@ class PlugInSelectPage(tk.Frame):
         else:
             self.pluginDirPath = dirname(realpath(__file__))
         tk.Frame.__init__(self, master)
-        tk.Label(self, text="PlugIn Selector").pack(side="top", fill="x", pady=10)
-        tk.Button(self, text="Return to Main Page", command=lambda: master.switch_frame(MainPage)).pack()
+        tk.Label(self, text="PlugIn Selector").grid()
+        tk.Button(self, text="Return to Main Page", command=lambda: master.switch_frame(MainPage)).grid()
         lb = tk.Listbox(self, width=100)
         avalPlugins = [f for f in listdir(self.pluginDirPath) if isfile(join(self.pluginDirPath, f))]
         for plugin in avalPlugins:
             lb.insert(0, plugin)
-        lb.pack()
-        tk.Button(self, text="Use Selected PlugIn", command=lambda: self.openPluginWindow(lb)).pack()
+        lb.grid()
+        tk.Button(self, text="Use Selected PlugIn", command=lambda: self.openPluginWindow(lb)).grid()
+
 
     def openPluginWindow(self, lb):
         DirPath = self.pluginDirPath
@@ -70,12 +75,12 @@ class PlugInSelectPage(tk.Frame):
         for var in pluginData['Variables']:
             entry = EntryWithLabel(t, var['Description'])
             dynamicEntries.append(entry)
-            entry.pack(anchor='e')
+            entry.grid()
             print(var['Name'])
             print(var['Description'])
             print(var['Variable Initialisation'])
         self.b = tk.Button(t, text="Apply parameters and Add plugin to project", command=lambda: self.addPluginToList(dynamicEntries, pluginData, selectedPlugIn))
-        self.b.pack()
+        self.b.grid()
 
     def addPluginToList(self, entries, plugindata, path):
         tempPluginDataWithVars = dict()
@@ -251,15 +256,15 @@ class BuildPage(tk.Frame):
 
     def __init__(self, master):
         tk.Frame.__init__(self, master)
-        tk.Label(self, text="App Builder").pack(side="top", fill="x", pady=10)
+        tk.Label(self, text="App Builder").grid()
         tk.Button(self, text="Return to Main Page", width=60,
-                  command=lambda: master.switch_frame(MainPage)).pack()
+                  command=lambda: master.switch_frame(MainPage)).grid()
         if (isfile('temp_plugins.json')):
             with open('temp_plugins.json') as temp_plugin_file:
                 self.tempPluginList = json.load(temp_plugin_file)
         self.tree = ttk.Treeview(self, height=20, selectmode='browse')
         self.vsb = ttk.Scrollbar(self, orient="vertical", command=self.tree.yview)
-        self.vsb.pack(side='right', fill='y')
+        self.vsb.grid()
         self.tree.configure(yscrollcommand=self.vsb.set)
 
         self.tree["columns"]=("aliases","type","dependencies")
@@ -278,17 +283,17 @@ class BuildPage(tk.Frame):
             for var in plugin["Variables"]:
                 print(str(idx) + var['Name'] + var['Alias'])
                 self.tree.insert(self.treeitems[idx], "end", text=var['Name'], values=(var['Alias'],"",""))
-        self.tree.pack(side=tk.TOP,fill=tk.X)
-        tk.Button(self, text="Delete Selected Plugin", width=60, command=lambda: self.deletePlugin(self.tree)).pack()
-        tk.Button(self, text="Generate Code", width=60, command=lambda: self.generateCode()).pack()
-        tk.Button(self, text="Build Wemos Binary", width=60, command=lambda: self.buildBinary()).pack()
+        self.tree.grid()
+        tk.Button(self, text="Delete Selected Plugin", width=60, command=lambda: self.deletePlugin(self.tree)).grid()
+        tk.Button(self, text="Generate Code", width=60, command=lambda: self.generateCode()).grid()
+        tk.Button(self, text="Build Wemos Binary", width=60, command=lambda: self.buildBinary()).grid()
 
 
 class DeployPage(tk.Frame):
     def __init__(self, master):
         tk.Frame.__init__(self, master)
-        tk.Label(self, text="App Deployment").pack(side="top", fill="x", pady=10)
-        tk.Button(self, text="Return to Main Page", command=lambda: master.switch_frame(MainPage)).pack()
+        tk.Label(self, text="App Deployment").grid()
+        tk.Button(self, text="Return to Main Page", command=lambda: master.switch_frame(MainPage)).grid()
 
 class ConfigPage(tk.Frame):
     def __init__(self, master):
@@ -329,6 +334,42 @@ class ConfigPage(tk.Frame):
         with open('settings.json', 'w') as json_file:
             json.dump(obj.data, json_file)
 
+class PlugInCreatePage(tk.Frame):
+    def __init__(self, master):
+        tk.Frame.__init__(self, master)
+        self.variables = list()
+
+        self.canvas = tk.Canvas(self, bd=0, width=900, height=768)
+        self.frame_in_canvas = tk.Frame(self.canvas)
+        self.variables_frame = tk.Frame(self.frame_in_canvas)
+        self.yscrollbar = tk.Scrollbar(self, orient='vertical', command=self.canvas.yview )
+        self.canvas.configure(yscrollcommand=self.yscrollbar.set)
+
+        self.yscrollbar.grid(row=0, column=1, sticky='N'+'S')
+        self.canvas.grid(row=0, column=0, sticky='N'+'S'+'E'+'W')
+        self.canvas_window_id = self.canvas.create_window(0, 0, window=self.frame_in_canvas, anchor='nw')
+
+        self.frame_in_canvas.bind("<Configure>", self.onFrameConfigure)
+
+        tk.Label(self.frame_in_canvas, text="Create PlugIn").grid(row=0, column=0)
+        tk.Button(self.frame_in_canvas, text="Return to Main Page", command=lambda: master.switch_frame(MainPage)).grid(row=1, column=0)
+        tk.Button(self.frame_in_canvas, text="Add Variable", command=lambda: self.addVariable(self.variables_frame)).grid(row=2, column=0)
+        tk.Label(self.frame_in_canvas, text="Includes - Add complete include line, for example: #include <ESP8266WiFi.h> \r You can add multiple include lines as well.").grid()
+        self.includesEntry = tkst.ScrolledText(self.frame_in_canvas, width=100, height=5)
+        self.includesEntry.grid()
+        self.variables_frame.grid()
+        self.addVariable(self.variables_frame)
+
+
+    def onFrameConfigure(self, event):
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+    def addVariable(self, parent):
+        self.variables.append(VariableTextboxes(parent, self.variables))
+        self.variables[-1].grid()
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+
 class EntryWithBrowse(tk.Frame):
     def __init__(self, parent, Name):
         tk.Frame.__init__(self, parent)
@@ -360,6 +401,45 @@ class EntryWithLabel(tk.Frame):
         return str(self.var.get())
     def setEntryValue(self, value):
         self.var.set(value)
+
+class VariableTextboxes(tk.Frame):
+    def __init__(self, parent, varlist):
+        self.variablesList = varlist
+        tk.Frame.__init__(self, parent)
+        self.l1 = tk.Label(self, text="Variable Name - Choose a unique symbol that will be replaced by User given alias, for example: @var@ ")
+        self.l2 = tk.Label(self, text="Variable Description - This text will be displayed when asking for user input for this variable")
+        self.l3 = tk.Label(self, text="Variable Initialisation - Place variable initialisation code here if needed (a variable can be a user provided alias only in your code)")
+        self.name = tk.StringVar()
+        self.nameBox = tk.Entry(self, textvariable=self.name, width=100)
+        self.description = tk.StringVar()
+        self.descriptionBox = tk.Entry(self, textvariable=self.description, width=100)
+        self.variableInitBox = tkst.ScrolledText(master = self, wrap   = 'word', width  = 100, height = 10)
+        self.l1.grid()
+        self.nameBox.grid()
+        self.l2.grid()
+        self.descriptionBox.grid()
+        self.l3.grid()
+        self.variableInitBox.grid()
+        self.delButton = tk.Button(self, text="Delete this Variable", bg='red', command= lambda:self.delete())
+        self.delButton.grid()
+
+    def delete(self):
+        self.grid_forget()
+        to_be_deleted = self.variablesList.index(self)
+        print (to_be_deleted)
+        del self.variablesList[to_be_deleted]
+
+    def getEntryValue(self):
+        self.result['Name'] = self.name.get()
+        self.result['Description'] = self.description.get()
+        self.result['Variable Initialisation'] = self.variableInitBox.get(1.0, tk.END)
+        return self.result
+
+    def setEntryValue(self, value):
+        self.name.set(value['Name'])
+        self.description.set(value['Description'])
+        self.variableInitBox.insert(1.0, value['Variable Initialisation'])
+
 
 if __name__ == "__main__":
     pluginList = []
