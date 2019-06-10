@@ -355,8 +355,10 @@ class PlugInCreatePage(tk.Frame):
         self.frame_in_canvas.bind("<Configure>", self.onFrameConfigure)
 
         tk.Label(self.frame_in_canvas, text="Create PlugIn").grid(row=0, column=0)
-        tk.Button(self.frame_in_canvas, text="Return to Main Page", command=lambda: master.switch_frame(MainPage)).grid(row=1, column=0)
-        tk.Button(self.frame_in_canvas, text="Add Variable", command=lambda: self.addVariable(self.variables_frame)).grid(row=2, column=0)
+        tk.Button(self.frame_in_canvas, text="Return to Main Page", command=lambda: master.switch_frame(MainPage)).grid()
+        tk.Button(self.frame_in_canvas, text='Open Plugin', command=lambda: self.openPlugin()).grid()
+        tk.Button(self.frame_in_canvas, text='Save Plugin', command=lambda: self.savePlugin()).grid()
+        tk.Button(self.frame_in_canvas, text="Add Variable", command=lambda: self.addVariable(self.variables_frame)).grid()
         tk.Label(self.frame_in_canvas, text="Includes - Add complete include line, for example: #include <ESP8266WiFi.h> \r You can add multiple include lines as well.").grid()
         self.includesEntry = tkst.ScrolledText(self.frame_in_canvas, width=100, height=5)
         self.includesEntry.grid()
@@ -399,6 +401,35 @@ class PlugInCreatePage(tk.Frame):
         self.dependencies[-1].grid()
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
+    def openPlugin(self):
+        filename =  filedialog.askopenfilename(initialdir = "/",title = "Select Plug-in to Open",filetypes = (("plugin files","*.json"),("all files","*.*")))
+        if (isfile(filename)):
+            with open(filename) as plugin_file:
+                plugin = json.load(plugin_file)
+            self.includesEntry.insert(1.0, plugin['Includes'])
+            for widget in self.variables:
+                widget.grid_forget()
+            del self.variables[:]
+            for var in plugin['Variables']:
+                self.variables.append(VariableTextboxes(self.variables_frame, self.variables))
+                self.variables[-1].setEntryValue(var)
+                self.variables[-1].grid()
+            self.mqttSubEntry.insert(1.0, plugin['MQTT Subscriptions'])
+            self.initEntry.insert(1.0, plugin['Init'])
+            self.publishEntry.insert(1.0, plugin['Publish'])
+            self.readIOEntry.insert(1.0, plugin['ReadInput'])
+            self.setOutputEntry.insert(1.0, plugin['Setoutput'])
+            self.ioType = plugin['IO Type']
+            for widget in self.dependencies:
+                widget.grid_forget()
+            del self.dependencies[:]
+            for dep in plugin['Dependencies']:
+                self.dependencies.append(DependencyEntry(self.dependencies_frame, self.dependencies))
+                self.dependencies[-1].setEntryValue(dep)
+                self.dependencies[-1].grid()
+
+    def savePlugin(self):
+        filename =  filedialog.asksaveasfilename(initialdir = "/",title = "Select Plug-in to Save",filetypes = (("plugin files","*.json"),("all files","*.*")))
 
 class EntryWithBrowse(tk.Frame):
     def __init__(self, parent, Name):
@@ -491,7 +522,7 @@ class DependencyEntry(tk.Frame):
         return self.dependency.get()
 
     def setEntryValue(self, value):
-        self.name.set(value)
+        self.dependency.set(value)
 
 if __name__ == "__main__":
     pluginList = []
