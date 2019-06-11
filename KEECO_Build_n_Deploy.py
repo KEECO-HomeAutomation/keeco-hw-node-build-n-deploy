@@ -3,7 +3,10 @@ import tkinter as tk
 from tkinter import ttk
 import json
 import errno
+import tempfile
 import shutil
+import pprint
+import subprocess
 from os import listdir, mkdir, system, name
 from os.path import isfile, isdir, join, dirname, realpath, split
 from tkinter import filedialog
@@ -189,6 +192,7 @@ class BuildPage(tk.Frame):
         readinput = []
         setoutput = []
         dependencies = []
+        includelines = []
 
         with open('settings.json') as json_file:
             self.settings_data = json.load(json_file)
@@ -222,6 +226,14 @@ class BuildPage(tk.Frame):
             setoutput.append(self.changeNameToAlias(plugin['Setoutput'],plugin['Variables']))
             dependencies.append(plugin['Dependencies'])
 
+        for include in includes:
+            lines = include.splitlines()
+            for line in lines:
+                includelines.append(line)
+
+        includelines = list(dict.fromkeys(includelines))
+        includes = includelines
+
         MQTT_content = self.replaceKeywordWithCodeMQTT(MQTT_content, "//@mqttSubTopics@", mqtt_sub)
         manageIO_content = self.replaceKeywordWithCode(manageIO_content, "//@includes@", includes)
         manageIO_content = self.replaceKeywordWithCode(manageIO_content, "//@globalvars@", var_init)
@@ -253,9 +265,39 @@ class BuildPage(tk.Frame):
             print("BUILD SUCCESSFULLY FINISHED! You can deploy your binary now!")
         else:
             print("Build was not successful! Error code: " + str(res) + " For details see the console above...")
+    def installDependencies(self):
+        installed_libs = list()
+        to_be_installed_libs = list()
+
+        output = subprocess.check_output("arduino-cli.exe lib list --format json", shell=True).decode()
+        obj = json.loads(output)
+
+        with open('temp_plugins.json') as temp_plugin_file:
+                PluginList = json.load(temp_plugin_file)
+
+        for plugin in PluginList:
+            for lib in plugin['Dependencies']:
+                self.required_libs.append(lib)
+        self.required_libs = list(dict.fromkeys(self.required_libs))
+
+        for lib in obj['libraries']:
+            installed_libs.append(lib['library']['RealName'])
+            print (lib['library']['RealName'])
+        installed_libs = list(dict.fromkeys(installed_libs))
+
+        for req_lib in self.required_libs:
+            if not (req_lib in installed_libs):
+                to_be_installed_libs.append(req_lib)
+
+        for lib in self.required_libs:
+            print ("Installing:" + lib)
+            system("arduino-cli.exe lib install \"" + lib + "\"")
+
 
     def __init__(self, master):
         tk.Frame.__init__(self, master)
+        self.required_libs = list()
+
         tk.Label(self, text="App Builder").grid()
         tk.Button(self, text="Return to Main Page", width=60,
                   command=lambda: master.switch_frame(MainPage)).grid()
@@ -264,8 +306,8 @@ class BuildPage(tk.Frame):
                 self.tempPluginList = json.load(temp_plugin_file)
         self.tree = ttk.Treeview(self, height=20, selectmode='browse')
         self.vsb = ttk.Scrollbar(self, orient="vertical", command=self.tree.yview)
-        self.vsb.grid()
         self.tree.configure(yscrollcommand=self.vsb.set)
+        self.vsb.grid(column=1, sticky='e')
 
         self.tree["columns"]=("aliases","type","dependencies")
         self.tree.column("aliases", width=150, minwidth=150, stretch=tk.NO)
@@ -285,6 +327,7 @@ class BuildPage(tk.Frame):
                 self.tree.insert(self.treeitems[idx], "end", text=var['Name'], values=(var['Alias'],"",""))
         self.tree.grid()
         tk.Button(self, text="Delete Selected Plugin", width=60, command=lambda: self.deletePlugin(self.tree)).grid()
+        tk.Button(self, text="Check Dependencies", width=60, command=lambda: self.installDependencies()).grid()
         tk.Button(self, text="Generate Code", width=60, command=lambda: self.generateCode()).grid()
         tk.Button(self, text="Build Wemos Binary", width=60, command=lambda: self.buildBinary()).grid()
 
@@ -377,7 +420,7 @@ class PlugInCreatePage(tk.Frame):
         tk.Label(self.frame_in_canvas, text="Read I/O - Place your code here to read inputs on your Wemos. This part can be used to store values to variables for the MQTT Publish() function, \r or you can explicitly call Publish() to publish changes.").grid()
         self.readIOEntry = tkst.ScrolledText(self.frame_in_canvas, width=100, height=5)
         self.readIOEntry.grid()
-        tk.Label(self.frame_in_canvas, text="Set Output - Place your code here to set outputs. Code here will be called in a function which is a callback \r function called when a new MQTT message is detected for any of the subscribed topics. \r The code below is placed in function whose signature is: \"setOutputs(char* topic, byte* payload, unsigned int length\")").grid()
+        tk.Label(self.frame_in_canvas, text="Set Output - Place your code here to set outputs. Code here will be called in a function which is a callback \r function called when a new MQTT message is detected for any of the subscribed topics. \r The code below is placed in function whose signature is: \"setOutputs(char* topic, byte* payload, unsigned int length)\" \r We have created an \"int tempint\" variable in case you need a variable for conversion.").grid()
         self.setOutputEntry = tkst.ScrolledText(self.frame_in_canvas, width=100, height=5)
         self.setOutputEntry.grid()
         tk.Label(self.frame_in_canvas, text="I/O Type - Define the Template Name how this I/O should appear in your KEECO System. See details on GitHub - keeco-hub!").grid()
