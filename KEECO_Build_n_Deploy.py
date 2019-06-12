@@ -1,6 +1,9 @@
-# Multi-frame tkinter application v2.3
+# KEECO Build & Deploy tool based on the Multi-frame tkinter application v2.3 regarding the GUI
 import tkinter as tk
 from tkinter import ttk
+import sys
+import glob
+import serial
 import json
 import errno
 import tempfile
@@ -78,7 +81,8 @@ class PlugInSelectPage(tk.Frame):
         for var in pluginData['Variables']:
             entry = EntryWithLabel(t, var['Description'])
             dynamicEntries.append(entry)
-            entry.grid()
+            if (var['Name'] != ""):
+                entry.grid()
             print(var['Name'])
             print(var['Description'])
             print(var['Variable Initialisation'])
@@ -153,23 +157,30 @@ class BuildPage(tk.Frame):
                 break
         return folders[0]
 
-    def changeNameToAlias(self, src, vars):
+    def changeNameToAlias(self, src, vars, number):
         result = src
         for var in vars:
-            result = result.replace(var['Name'],var['Alias'])
+            if (var['Name'] != ""):
+                result = result.replace(var['Name'],var['Alias'])
+        result = result.replace('@N@', str(number))
         return result
 
-    def generateVarInitString(self, vars):
+    def generateVarInitString(self, vars, number):
         result = ""
         for var in vars:
-            result = result + var['Variable Initialisation'].replace(var['Name'],var['Alias']) + "\r\n"
+            if (var['Name'] != ""):
+                result = result + var['Variable Initialisation'].replace(var['Name'],var['Alias']) + "\r"
+            else:
+                result = result + var['Variable Initialisation'] + "\r"
+
+        result = result.replace("@N@", str(number))
         return result
 
     def replaceKeywordWithCodeMQTT(self, src, keyword, array):
         tempreplacement = ""
         for element in array[:-1]:
-            tempreplacement = tempreplacement + element + ',' + "\r\n"
-        tempreplacement = tempreplacement + array[-1] + "\r\n"
+            tempreplacement = tempreplacement + element + ',' + "\r"
+        tempreplacement = tempreplacement + array[-1] + "\r"
         num_of_MQTT_topics = tempreplacement.count(',')
         result = src.replace(keyword,tempreplacement)
         result = result.replace("int mqttSubTopicCount = 0;", "int mqttSubTopicCount = " + str(num_of_MQTT_topics+1) + ";")
@@ -179,9 +190,10 @@ class BuildPage(tk.Frame):
     def replaceKeywordWithCode(self, src, keyword, array):
         tempreplacement = ""
         for element in array:
-            tempreplacement = tempreplacement + element + "\r\n"
+            tempreplacement = tempreplacement + element + "\r"
         result = src.replace(keyword,tempreplacement)
         return result
+
 
     def generateCode(self):
         includes = []
@@ -193,6 +205,7 @@ class BuildPage(tk.Frame):
         setoutput = []
         dependencies = []
         includelines = []
+        pluginAutonumbering = dict()
 
         with open('settings.json') as json_file:
             self.settings_data = json.load(json_file)
@@ -217,13 +230,18 @@ class BuildPage(tk.Frame):
             PluginList = json.load(temp_plugin_file)
 
         for plugin in PluginList:
+            if plugin['pluginPath'] in pluginAutonumbering:
+                pluginAutonumbering[plugin['pluginPath']] += 1
+            else:
+                pluginAutonumbering[plugin['pluginPath']] = 0
+
             includes.append(plugin['Includes'])
-            var_init.append(self.generateVarInitString(plugin['Variables']))
-            mqtt_sub.append(self.changeNameToAlias(plugin['MQTT Subscriptions'],plugin['Variables']))
-            init.append(self.changeNameToAlias(plugin['Init'],plugin['Variables']))
-            publish.append(self.changeNameToAlias(plugin['Publish'],plugin['Variables']))
-            readinput.append(self.changeNameToAlias(plugin['ReadInput'],plugin['Variables']))
-            setoutput.append(self.changeNameToAlias(plugin['Setoutput'],plugin['Variables']))
+            var_init.append(self.generateVarInitString(plugin['Variables'],pluginAutonumbering[plugin['pluginPath']]))
+            mqtt_sub.append(self.changeNameToAlias(plugin['MQTT Subscriptions'],plugin['Variables'],pluginAutonumbering[plugin['pluginPath']]))
+            init.append(self.changeNameToAlias(plugin['Init'],plugin['Variables'],pluginAutonumbering[plugin['pluginPath']]))
+            publish.append(self.changeNameToAlias(plugin['Publish'],plugin['Variables'],pluginAutonumbering[plugin['pluginPath']]))
+            readinput.append(self.changeNameToAlias(plugin['ReadInput'],plugin['Variables'],pluginAutonumbering[plugin['pluginPath']]))
+            setoutput.append(self.changeNameToAlias(plugin['Setoutput'],plugin['Variables'],pluginAutonumbering[plugin['pluginPath']]))
             dependencies.append(plugin['Dependencies'])
 
         for include in includes:
@@ -293,7 +311,6 @@ class BuildPage(tk.Frame):
             print ("Installing:" + lib)
             system("arduino-cli.exe lib install \"" + lib + "\"")
 
-
     def __init__(self, master):
         tk.Frame.__init__(self, master)
         self.required_libs = list()
@@ -324,7 +341,8 @@ class BuildPage(tk.Frame):
             self.treeitems.append(self.tree.insert(self.root_tree_node, idx, text=self.filename, values=("",plugin['IO Type'], plugin['Dependencies']), open='true'))
             for var in plugin["Variables"]:
                 print(str(idx) + var['Name'] + var['Alias'])
-                self.tree.insert(self.treeitems[idx], "end", text=var['Name'], values=(var['Alias'],"",""))
+                if (var['Name'] != ""):
+                    self.tree.insert(self.treeitems[idx], "end", text=var['Name'], values=(var['Alias'],"",""))
         self.tree.grid()
         tk.Button(self, text="Delete Selected Plugin", width=60, command=lambda: self.deletePlugin(self.tree)).grid()
         tk.Button(self, text="Check Dependencies", width=60, command=lambda: self.installDependencies()).grid()
@@ -334,9 +352,47 @@ class BuildPage(tk.Frame):
 
 class DeployPage(tk.Frame):
     def __init__(self, master):
+        self.wemosSerialPort = ""
+        self.portList = list()
         tk.Frame.__init__(self, master)
         tk.Label(self, text="App Deployment").grid()
         tk.Button(self, text="Return to Main Page", command=lambda: master.switch_frame(MainPage)).grid()
+        tk.Button(self, text="Select Serial Port", command=lambda: self.openSerialSelectWindow()).grid()
+
+
+    def list_serial_ports(self, lb):
+        if sys.platform.startswith('win'):
+            ports = ['COM%s' % (i + 1) for i in range(256)]
+        elif sys.platform.startswith('linux') or sys.platform.startswith('cygwin'):
+            # this excludes your current terminal "/dev/tty"
+            ports = glob.glob('/dev/tty[A-Za-z]*')
+        elif sys.platform.startswith('darwin'):
+            ports = glob.glob('/dev/tty.*')
+        else:
+            raise EnvironmentError('Unsupported platform')
+        result = []
+        for port in ports:
+            try:
+                s = serial.Serial(port)
+                s.close()
+                result.append(port)
+            except (OSError, serial.SerialException):
+                pass
+        self.portList = result
+        lb.delete(0,tk.END)
+        for port in self.portList:
+            lb.insert(0, port)
+
+    def openSerialSelectWindow(self):
+        t = tk.Toplevel(self)
+        t.title('Select Serial port for Wemos')
+        self.lb = tk.Listbox(t, width=20)
+        self.b = tk.Button(t, text="Scan Serial Ports", command=lambda: self.list_serial_ports(self.lb))
+        self.b.grid()
+        self.list_serial_ports(self.lb)
+        self.lb.grid()
+
+
 
 class ConfigPage(tk.Frame):
     def __init__(self, master):
@@ -402,13 +458,13 @@ class PlugInCreatePage(tk.Frame):
         tk.Button(self.frame_in_canvas, text="Return to Main Page", width = 70, command=lambda: master.switch_frame(MainPage)).grid()
         tk.Button(self.frame_in_canvas, text='Open Plugin', width = 70, command=lambda: self.openPlugin()).grid()
         tk.Button(self.frame_in_canvas, text='Save Plugin', width = 70, command=lambda: self.savePlugin()).grid()
-        tk.Button(self.frame_in_canvas, text="Add Variable", width = 70, command=lambda: self.addVariable(self.variables_frame)).grid()
         tk.Label(self.frame_in_canvas, text="Includes - Add complete include line, for example: #include <ESP8266WiFi.h> \r You can add multiple include lines as well.").grid()
         self.includesEntry = tkst.ScrolledText(self.frame_in_canvas, width=100, height=5)
         self.includesEntry.grid()
         self.variables_frame.grid()
+        tk.Button(self.frame_in_canvas, text="Add Variable", width = 70, command=lambda: self.addVariable(self.variables_frame)).grid()
         self.addVariable(self.variables_frame)
-        tk.Label(self.frame_in_canvas, text="MQTT Subscriptions - Add your MQTT Subscription topics here. If multiple topics are to be included use a ,(comma) to seperate them and make sure not to put a \",\" after the last one! \r Topics should be included in this format: \" node/UUID_PLACEHOLDER/@TOPIC@ \" - where \"@TOPIC@\" is your symbol for the actual topic in the variable definitions. \r The \" UUID_PLACEHOLDER \" will be replaced on the KEECO HW Node in run-time as the UUID is stored in the device's EEPROM").grid()
+        tk.Label(self.frame_in_canvas, text="MQTT Subscriptions - Add your MQTT Subscription topics here. If multiple topics are to be included use a ,(comma) to seperate them and make sure not to put a \",\" after the last one! \r Topics should be included in this format: \"node/UUID_PLACEHOLDER/@TOPIC@\" - where @TOPIC@ is your symbol for the actual topic in the variable definitions.\rMake sure to put quotations marks as well! \r The \" UUID_PLACEHOLDER \" will be replaced on the KEECO HW Node in run-time as the UUID is stored in the device's EEPROM").grid()
         self.mqttSubEntry = tkst.ScrolledText(self.frame_in_canvas, width=100, height=5)
         self.mqttSubEntry.grid()
         tk.Label(self.frame_in_canvas, text="Initialisation - Place your code here that initialises your hardware add-ons / I/O on the Wemos. The code placed here will be called during Wemos's setup() function. \r Please note that the variable init should happen outside of this segment and be defined in the variables input field's Init box.").grid()
@@ -529,14 +585,14 @@ class EntryWithLabel(tk.Frame):
 class VariableTextboxes(tk.Frame):
     def __init__(self, parent, varlist):
         tk.Frame.__init__(self, parent)
-        self.l1 = tk.Label(self, text="Variable Name - Choose a unique symbol that will be replaced by User given alias, for example: @var@ ")
+        self.l1 = tk.Label(self, text="Variable Name - Choose a unique symbol that will be replaced by User given alias, for example: @var@ \r Leave this field empty if you don't want to expose this variable to the user.")
         self.l2 = tk.Label(self, text="Variable Description - This text will be displayed when asking for user input for this variable")
-        self.l3 = tk.Label(self, text="Variable Initialisation - Place variable initialisation code here if needed (a variable can be a user provided alias only in your code)")
+        self.l3 = tk.Label(self, text="Variable Initialisation - Place variable initialisation code here if needed (a variable can be a user provided alias only in your code) \r Place the @N@ token in the name of your variable to make sure this plug-in can be added multiple times. \r @N@ token will be replaced by plug-in instance number automatically. This applies to all fields expect Include.")
         self.name = tk.StringVar()
         self.nameBox = tk.Entry(self, textvariable=self.name, width=100)
         self.description = tk.StringVar()
         self.descriptionBox = tk.Entry(self, textvariable=self.description, width=100)
-        self.variableInitBox = tkst.ScrolledText(master = self, wrap   = 'word', width  = 100, height = 10)
+        self.variableInitBox = tkst.ScrolledText(master = self, wrap   = 'word', width  = 100, height = 5)
         self.l1.grid()
         self.nameBox.grid()
         self.l2.grid()
