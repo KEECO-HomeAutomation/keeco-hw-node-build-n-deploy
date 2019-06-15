@@ -1,0 +1,1 @@
+{"name": "", "uuid": "UUID_PLACEHOLDER", "endpoints": [{"name": "Homerseklet1", "output": "0", "range": "0-2..200"}, {"name": "Homerseklet2", "output": "0", "range": "0-2..200"}], "templates": [{"name": "Temperature", "mappings": [{"name": "Homerseklet1", "endpoint": "Gauge1"}]}, {"name": "Temperature", "mappings": [{"name": "Homerseklet2", "endpoint": "Gauge1"}]}]}
