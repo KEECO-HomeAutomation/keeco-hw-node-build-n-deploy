@@ -743,7 +743,7 @@ class TemplatesEntry(tk.Frame):
         self.templateListFrame = tk.Frame(parent, bd=3, relief='groove')
         self.templateListFrame.grid()
         tk.Button(self, text="Add Template", bg='green', width=80, command=lambda: self.addTemplate()).grid()
-        self.addTemplate()
+        #self.addTemplate()
 
     def addTemplate(self):
         self.template = TemplateEntry(self.templateListFrame)
@@ -774,10 +774,11 @@ class TemplateEntry(tk.Frame):
         tk.Button(self, text="Add Mapping", bg='green', width=40, command=lambda: self.addMappings()).grid()
         self.delButton = tk.Button(self, text="Delete this item template", width=80, bg='red', command= lambda:self.delete())
         self.delButton.grid()
-        self.addMappings()
+        #self.addMappings()
 
     def delete(self):
         self.grid_forget()
+        self.destroy()
 
     def getEntryValue(self):
         output = dict()
@@ -816,6 +817,7 @@ class MappingsEntry(tk.Frame):
 
     def delete(self):
         self.grid_forget()
+        self.destroy()
 
     def getEntryValue(self):
         output = dict()
@@ -840,6 +842,7 @@ class EndpointEntry(tk.Frame):
 
     def delete(self):
         self.grid_forget()
+        self.destroy()
 
     def getEntryValue(self):
         output = dict()
@@ -849,6 +852,7 @@ class EndpointEntry(tk.Frame):
         return output
 
     def setEntryValue(self, value):
+        print("endpoint entries were set")
         self.nameBox.setEntryValue(value['name'])
         self.outputBox.setEntryValue(value['output'])
         self.rangeBox.setEntryValue(value['range'])
@@ -860,7 +864,7 @@ class EndpointListEntry(tk.Frame):
          self.endpointlistframe = tk.Frame(parent, bd=3, relief='groove')
          self.endpointlistframe.grid()
          tk.Button(parent, text="Add new endpoint", bg='green', width=80, command= lambda:self.addEndpoint()).grid()
-         self.addEndpoint()
+         #self.addEndpoint()
 
     def addEndpoint(self):
         endpointEntry = EndpointEntry(self.endpointlistframe, bd=3, relief='groove')
@@ -877,6 +881,7 @@ class EndpointListEntry(tk.Frame):
 
     def setEntryValue(self, value):
         for entry in value:
+            print(entry['name'])
             endpointEntry = EndpointEntry(self.endpointlistframe)
             endpointEntry.grid()
             endpointEntry.setEntryValue(entry)
