@@ -589,6 +589,14 @@ class PlugInCreatePage(tk.Frame):
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
     def openPlugin(self):
+        self.includesEntry.delete(1.0,'end')
+        self.mqttSubEntry.delete(1.0,'end')
+        self.initEntry.delete(1.0,'end')
+        self.publishEntry.delete(1.0,'end')
+        self.readIOEntry.delete(1.0,'end')
+        self.setOutputEntry.delete(1.0,'end')
+        self.ioTypeEntry.delete(0,'end')
+
         filename =  filedialog.askopenfilename(initialdir = "/",title = "Select Plug-in to Open",filetypes = (("plugin files","*.json"),("all files","*.*")))
         if (isfile(filename)):
             with open(filename) as plugin_file:
