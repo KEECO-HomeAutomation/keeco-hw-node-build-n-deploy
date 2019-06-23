@@ -14,9 +14,12 @@ from os import listdir, mkdir, system, name
 from os.path import isfile, isdir, join, dirname, realpath, split
 from tkinter import filedialog
 import tkinter.scrolledtext as tkst
+import CodeGeneratorClass as cgc
+import BinaryBuilderClass as bbc
+import CustomWidgetClasses as cwc
 
 
-class SampleApp(tk.Tk):
+class MainApp(tk.Tk):
     def __init__(self):
         tk.Tk.__init__(self)
         self._frame = None
@@ -40,10 +43,13 @@ class MainPage(tk.Frame):
         tk.Button(self, text="Configuration", width=60, command=lambda: master.switch_frame(ConfigPage)).grid()
         tk.Label(self, text="Advanced Features").grid()
         tk.Button(self, text="Create Plug-Ins", width=60, command=lambda: master.switch_frame(PlugInCreatePage)).grid()
+        print("___Main page has been loaded successfully")
 
 class PlugInManagerPage(tk.Frame):
     def __init__(self, master):
         tk.Frame.__init__(self, master)
+        self.varFrameObjs = list()
+        self.variablesFrame = tk.Frame(self)
 
         if (isfile('settings.json')):
             with open('settings.json') as json_file:
@@ -52,15 +58,14 @@ class PlugInManagerPage(tk.Frame):
         else:
             self.pluginDirPath = dirname(realpath(__file__))
 
-        self.varFrameObjs = list()
         tk.Label(self, text="Plug-in Selector").grid()
         tk.Button(self, text="Return to Main Page", width=80, command=lambda: master.switch_frame(MainPage)).grid()
         tk.Label(self, text="Plug-ins added to this project:").grid()
-        self.variablesFrame = tk.Frame(self)
         self.variablesFrame.grid()
         tk.Button(self, text="Add Plugin", bg='green', width=80, command=lambda: self.addPlugin(self.variablesFrame)).grid()
         tk.Button(self, text="Save Project", width=80, command=lambda: self.saveProject(self.varFrameObjs)).grid()
         self.loadVarsAtStart(self.variablesFrame)
+        print("____Plug-in manager page has been loaded successfully")
 
     def addPlugin(self, variablesframe):
         t = tk.Toplevel(self)
@@ -83,7 +88,7 @@ class PlugInManagerPage(tk.Frame):
         tk.Label(varFrame, text=CurrSel).grid()
 
         for var in pluginData['Variables']:
-            entry = EntryWithLabel(varFrame, var['Description'])
+            entry = cwc.EntryWithLabel(varFrame, var['Description'])
             if (var['Name'] != ""):
                 entry.grid(sticky = 'e')
 
@@ -101,13 +106,14 @@ class PlugInManagerPage(tk.Frame):
                 path, filename = split(pluginData['pluginPath'])
                 tk.Label(varFrame, text=filename).grid()
                 for var in pluginData['Variables']:
-                    entry = EntryWithLabel(varFrame, var['Description'])
+                    entry = cwc.EntryWithLabel(varFrame, var['Description'])
                     if (var['Name'] != ""):
                         entry.grid(sticky='e')
                         entry.setEntryValue(var['Alias'])
                 tk.Button(varFrame, text="Delete this Plug-in", bg='red', width=60, command= lambda:self.delete(varFrame, self.varFrameObjs)).grid()
                 self.varFrameObjs.append(varFrame)
                 varFrame.grid(sticky='e')
+        print("____Plug-ins have been loaded from temp plugin file")
 
     def delete(self, varframe, varframeobjs):
         to_be_deleted = varframeobjs.index(varframe)
@@ -142,7 +148,7 @@ class PlugInManagerPage(tk.Frame):
 
         with open('temp_plugins.json', 'w') as temp_plugin_file:
             json.dump(tempPluginList, temp_plugin_file)
-
+        print("____Plugins are saved to temp plugin file")
 
 class BuildPage(tk.Frame):
     def deletePlugin(self, tree):
@@ -156,240 +162,11 @@ class BuildPage(tk.Frame):
         else:
             print('Warning: Can only delete if Plug-In level is selected!')
 
-    def copy(self, src, dest):
-        try:
-            shutil.copytree(src, dest)
-        except OSError as e:
-            # If the error was caused because the source wasn't a directory
-            if e.errno == errno.ENOTDIR:
-                shutil.copy(src, dest)
-            else:
-                print('Directory not copied. Error: %s' % e)
-
-    def lastFolderInPath(self, path):           #currently unused
-        folders = []
-        while 1:
-            path, folder = split(path)
-            if folder != "":
-                folders.append(folder)
-            else:
-                if path != "":
-                    folders.append(path)
-                break
-        return folders[0]
-
-    def changeNameToAlias(self, src, vars, number):
-        result = src
-        for var in vars:
-            if (var['Name'] != ""):
-                result = result.replace(var['Name'],var['Alias'])
-        result = result.replace('@N@', str(number))
-        return result
-
-    def generateVarInitString(self, vars, number):
-        result = ""
-        for var in vars:
-            if (var['Name'] != ""):
-                result = result + var['Variable Initialisation'].replace(var['Name'],var['Alias']) + "\r"
-            else:
-                result = result + var['Variable Initialisation'] + "\r"
-
-        result = self.changeNameToAlias(result, vars, number)
-        result = result.replace("@N@", str(number))
-        return result
-
-    def replaceKeywordWithCodeMQTT(self, src, keyword, array):
-        tempreplacement = ""
-        for element in array[:-1]:
-            tempreplacement = tempreplacement + element + ',' + "\r"
-        tempreplacement = tempreplacement + array[-1] + "\r"
-        num_of_MQTT_topics = tempreplacement.count(',')
-        result = src.replace(keyword,tempreplacement)
-        result = result.replace("int mqttSubTopicCount = 0;", "int mqttSubTopicCount = " + str(num_of_MQTT_topics+1) + ";")
-        return result
-
-
-    def replaceKeywordWithCode(self, src, keyword, array):
-        tempreplacement = ""
-        for element in array:
-            tempreplacement = tempreplacement + element + "\r"
-        result = src.replace(keyword,tempreplacement)
-        return result
-
-    def changeNameToAliasInTemplates(self, templatelist, vars, number):
-        templates_out = list()
-        for template in templatelist:
-            mappings_out = list()
-            template_out = dict()
-            template_out['name'] = self.changeNameToAlias(template['name'], vars, number)
-            for mapping in template['mappings']:
-                mapping_out = dict()
-                mapping_out['name'] = self.changeNameToAlias(mapping['name'],vars, number)
-                mapping_out['endpoint'] = self.changeNameToAlias(mapping['endpoint'],vars, number)
-                mappings_out.append(mapping_out)
-            template_out['mappings'] = mappings_out
-            templates_out.append(template_out)
-        return templates_out
-
-    def changeNameToAliasInEndpoints(self, endpointlist, vars, number):
-        endpoints_out = list()
-        for endpoint in endpointlist:
-            endpoint_out = dict()
-            endpoint_out['name'] = self.changeNameToAlias(endpoint['name'], vars, number)
-            endpoint_out['output'] = self.changeNameToAlias(endpoint['output'], vars, number)
-            endpoint_out['range'] = self.changeNameToAlias(endpoint['range'], vars, number)
-            endpoints_out.append(endpoint_out)
-        return endpoints_out
-
-    def generateCode(self):
-        includes = []
-        var_init = []
-        mqtt_sub = []
-        init = []
-        publish = []
-        readinput = []
-        setoutput = []
-        dependencies = []
-        includelines = []
-        endpoints_list = []
-        templates_list = []
-        pluginAutonumbering = dict()
-
-        with open('settings.json') as json_file:
-            self.settings_data = json.load(json_file)
-        template_path, template_lastfolder = split(self.settings_data['templateFolderPath'])
-        self.fullResultFolderPath = join(self.settings_data['resultFolderPath'],template_lastfolder)
-
-        if isdir(self.fullResultFolderPath):
-            shutil.rmtree(self.fullResultFolderPath)
-        else:
-            mkdir(self.fullResultFolderPath)
-        self.copy(self.settings_data['templateFolderPath'], self.fullResultFolderPath)
-        manage_IO_Path = join(self.fullResultFolderPath, 'Manage_IO.ino')
-        MQTT_Path = join(self.fullResultFolderPath, 'MQTT.ino')
-
-        with open(manage_IO_Path) as manageIO_file:
-            manageIO_content = manageIO_file.read()
-
-        with open(MQTT_Path) as MQTT_file:
-            MQTT_content = MQTT_file.read()
-
-        with open('temp_plugins.json') as temp_plugin_file:
-            PluginList = json.load(temp_plugin_file)
-
-        for plugin in PluginList:
-            if plugin['pluginPath'] in pluginAutonumbering:
-                pluginAutonumbering[plugin['pluginPath']] += 1
-            else:
-                pluginAutonumbering[plugin['pluginPath']] = 0
-
-            includes.append(plugin['Includes'])
-            var_init.append(self.generateVarInitString(plugin['Variables'],pluginAutonumbering[plugin['pluginPath']]))
-            mqtt_sub.append(self.changeNameToAlias(plugin['MQTT Subscriptions'],plugin['Variables'],pluginAutonumbering[plugin['pluginPath']]))
-            init.append(self.changeNameToAlias(plugin['Init'],plugin['Variables'],pluginAutonumbering[plugin['pluginPath']]))
-            publish.append(self.changeNameToAlias(plugin['Publish'],plugin['Variables'],pluginAutonumbering[plugin['pluginPath']]))
-            readinput.append(self.changeNameToAlias(plugin['ReadInput'],plugin['Variables'],pluginAutonumbering[plugin['pluginPath']]))
-            setoutput.append(self.changeNameToAlias(plugin['Setoutput'],plugin['Variables'],pluginAutonumbering[plugin['pluginPath']]))
-            dependencies.append(plugin['Dependencies'])
-            templates_list.append(self.changeNameToAliasInTemplates(plugin['templates'],plugin['Variables'],pluginAutonumbering[plugin['pluginPath']]))
-            endpoints_list.append(self.changeNameToAliasInEndpoints(plugin['endpoints'],plugin['Variables'],pluginAutonumbering[plugin['pluginPath']]))
-
-
-        for include in includes:
-            lines = include.splitlines()
-            for line in lines:
-                includelines.append(line)
-
-        includelines = list(dict.fromkeys(includelines))
-        includes = includelines
-
-        MQTT_content = self.replaceKeywordWithCodeMQTT(MQTT_content, "//@mqttSubTopics@", mqtt_sub)
-        manageIO_content = self.replaceKeywordWithCode(manageIO_content, "//@includes@", includes)
-        manageIO_content = self.replaceKeywordWithCode(manageIO_content, "//@globalvars@", var_init)
-        manageIO_content = self.replaceKeywordWithCode(manageIO_content, "//@initIOcode@", init)
-        manageIO_content = self.replaceKeywordWithCode(manageIO_content, "//@readIOcode@", readinput)
-        manageIO_content = self.replaceKeywordWithCode(manageIO_content, "//@publishIOcode@", publish)
-        manageIO_content = self.replaceKeywordWithCode(manageIO_content, "//@setOutputscode@", setoutput)
-
-        self.generateDescriptorFile(templates_list, endpoints_list, self.hwnode_name.get())
-
-        with open(manage_IO_Path, "w") as f:
-            f.write(manageIO_content)
-        with open(MQTT_Path, "w") as f:
-            f.write(MQTT_content)
-        print(MQTT_content)
-        print(manageIO_content)
-        print("Code has been created successfully!")
-
-    def generateDescriptorFile(self, templates_list, endpoints_list, name):
-        result = dict()
-        temp_templatelist = list()
-        temp_endpointlist = list()
-        result['name'] = name
-        result['uuid'] = "UUID_PLACEHOLDER"
-        for templates in templates_list:
-            for template in templates:
-                temp_templatelist.append(template)
-        for endpoints in endpoints_list:
-            for endpoint in endpoints:
-                temp_endpointlist.append(endpoint)
-        result['endpoints'] = temp_endpointlist
-        result['templates'] = temp_templatelist
-
-        dataFolderPath = join(self.fullResultFolderPath, "data")
-        dataFileName = join(dataFolderPath, "hwnode_info.txt")
-
-        with open(dataFileName, "w") as f:
-            json.dump(result, f)
-
-
-    def buildBinary(self):
-        with open('settings.json') as json_file:
-            self.settings_data = json.load(json_file)
-        template_path, template_lastfolder = split(self.settings_data['templateFolderPath'])
-        fullResultFolderPath = join(self.settings_data['resultFolderPath'],template_lastfolder)
-
-        print("OS Type:" + name)
-        system("cd " + fullResultFolderPath + "&" + "dir")
-
-        print("arduino-cli.exe compile --fqbn esp8266:esp8266:d1_mini " + fullResultFolderPath + " --build-path " + self.settings_data['buildFolderPath'])
-        res = system("arduino-cli.exe compile --fqbn esp8266:esp8266:d1_mini " + fullResultFolderPath + " --build-path " + self.settings_data['buildFolderPath'])
-        if (res == 0):
-            print("BUILD SUCCESSFULLY FINISHED! You can deploy your binary now!")
-        else:
-            print("Build was not successful! Error code: " + str(res) + " For details see the console above...")
-
-    def installDependencies(self):
-        installed_libs = list()
-        to_be_installed_libs = list()
-
-        output = subprocess.check_output("arduino-cli.exe lib list --format json", shell=True).decode()
-        obj = json.loads(output)
-
-        with open('temp_plugins.json') as temp_plugin_file:
-                PluginList = json.load(temp_plugin_file)
-
-        for plugin in PluginList:
-            for lib in plugin['Dependencies']:
-                self.required_libs.append(lib)
-        self.required_libs = list(dict.fromkeys(self.required_libs))
-
-        for lib in obj['libraries']:
-            installed_libs.append(lib['library']['RealName'])
-            print (lib['library']['RealName'])
-        installed_libs = list(dict.fromkeys(installed_libs))
-
-        for req_lib in self.required_libs:
-            if not (req_lib in installed_libs):
-                to_be_installed_libs.append(req_lib)
-
-        for lib in self.required_libs:
-            print ("Installing:" + lib)
-            system("arduino-cli.exe lib install \"" + lib + "\"")
-
     def __init__(self, master):
         tk.Frame.__init__(self, master)
         self.required_libs = list()
+        self.cg = cgc.CodeGenerator()
+        self.bb = bbc.BinaryBuilder()
 
         tk.Label(self, text="App Builder").grid()
         tk.Button(self, text="Return to Main Page", width=60,
@@ -416,17 +193,18 @@ class BuildPage(tk.Frame):
         self.root_tree_node = self.tree.insert('', 'end', text='Plug-Ins', open=True)
         for idx, plugin in enumerate(self.tempPluginList):
             self.path, self.filename = split(plugin['pluginPath'])
-            print(str(idx) + self.filename)
+            #print(str(idx) + self.filename)
             self.treeitems.append(self.tree.insert(self.root_tree_node, idx, text=self.filename, values=("",plugin['IO Type'], plugin['Dependencies']), open='true'))
             for var in plugin["Variables"]:
-                print(str(idx) + var['Name'] + var['Alias'])
+                #print(str(idx) + var['Name'] + var['Alias'])
                 if (var['Name'] != ""):
                     self.tree.insert(self.treeitems[idx], "end", text=var['Name'], values=(var['Alias'],"",""))
         self.tree.grid()
         tk.Button(self, text="Delete Selected Plugin", width=60, command=lambda: self.deletePlugin(self.tree)).grid()
-        tk.Button(self, text="Check Dependencies", width=60, command=lambda: self.installDependencies()).grid()
-        tk.Button(self, text="Generate Code", width=60, command=lambda: self.generateCode()).grid()
-        tk.Button(self, text="Build Wemos Binary", width=60, command=lambda: self.buildBinary()).grid()
+        tk.Button(self, text="Check Dependencies", width=60, command=lambda: self.bb.installDependencies()).grid()
+        tk.Button(self, text="Generate Code", width=60, command=lambda: self.cg.fullCodeGenProcess(self.hwnode_name.get())).grid()
+        tk.Button(self, text="Build Wemos Binary", width=60, command=lambda: self.bb.fullBuildProcess()).grid()
+        print("____Build page has been loaded successfully")
 
 class DeployPage(tk.Frame):
     def __init__(self, master):
@@ -436,6 +214,8 @@ class DeployPage(tk.Frame):
         tk.Label(self, text="App Deployment").grid()
         tk.Button(self, text="Return to Main Page", command=lambda: master.switch_frame(MainPage)).grid()
         tk.Button(self, text="Select Serial Port", command=lambda: self.openSerialSelectWindow()).grid()
+        tk.Button(self, text="Upload binary and SPIFFS file", command=lambda: self.uploadProgram()).grid()
+        print("____Deploy page has been loaded successfully")
 
 
     def list_serial_ports(self, lb):
@@ -469,6 +249,21 @@ class DeployPage(tk.Frame):
         self.b.grid()
         self.list_serial_ports(self.lb)
         self.lb.grid()
+        self.selButton = tk.Button(t, text="Select Serial Port", command=lambda: self.setSerialPort(self.lb))
+        self.selButton.grid()
+
+    def setSerialPort(self, lb):
+        self.wemosSerialPort = lb.get(lb.curselection())
+
+    def uploadProgram(self):
+        with open('settings.json') as json_file:
+            settings_data = json.load(json_file)
+
+        print ("esptool.exe --port " + self.wemosSerialPort + " --baud 921600 write_flash 0x200000 " +  join(settings_data['buildFolderPath'],"out.spiffs"))
+        res = system("esptool.exe --port " + self.wemosSerialPort + " --baud 921600 write_flash 0x200000 " +  join(settings_data['buildFolderPath'],"out.spiffs"))
+
+        print ("esptool.exe --port " + self.wemosSerialPort + " --baud 921600 write_flash 0x000000 " +  join(settings_data['buildFolderPath'],"KEECO_hwNode_ESP8266.ino.bin"))
+        res = system("esptool.exe --port " + self.wemosSerialPort + " --baud 921600 write_flash 0x000000 " +  join(settings_data['buildFolderPath'],"KEECO_hwNode_ESP8266.ino.bin"))
 
 class ConfigPage(tk.Frame):
     def __init__(self, master):
@@ -487,10 +282,10 @@ class ConfigPage(tk.Frame):
               "resultFolderPath": dir_path,
               "buildFolderPath": dir_path
             }
-        self.pluginPath = EntryWithBrowse(self, "Plugin Path")
-        self.templateFolderPath = EntryWithBrowse(self, "Template Path")
-        self.resultFolderPath = EntryWithBrowse(self, "Result Path")
-        self.buildFolderPath = EntryWithBrowse(self, "Build Path")
+        self.pluginPath = cwc.EntryWithBrowse(self, "Plugin Path")
+        self.templateFolderPath = cwc.EntryWithBrowse(self, "Template Path")
+        self.resultFolderPath = cwc.EntryWithBrowse(self, "Result Path")
+        self.buildFolderPath = cwc.EntryWithBrowse(self, "Build Path")
 
         self.pluginPath.grid(row=4, sticky="e")
         self.templateFolderPath.grid(row=5, sticky="e")
@@ -501,6 +296,8 @@ class ConfigPage(tk.Frame):
         self.templateFolderPath.setEntryValue(self.data['templateFolderPath'])
         self.resultFolderPath.setEntryValue(self.data['resultFolderPath'])
         self.buildFolderPath.setEntryValue(self.data['buildFolderPath'])
+        print("____Configuration page has been loaded successfully")
+
     def saveSettingsToFile(obj):
         obj.data["pluginFolderPath"] = obj.pluginPath.getEntryValue()
         obj.data["templateFolderPath"] = obj.templateFolderPath.getEntryValue()
@@ -568,23 +365,24 @@ class PlugInCreatePage(tk.Frame):
         tk.Button(self.frame_in_canvas, text="Add Dependency", width = 70, command=lambda: self.addDependency(self.dependencies_frame)).grid()
         tk.Label(self.frame_in_canvas, text="Templates").grid()
         self.templates_frame.grid()
-        self.templatebox = TemplatesEntry(self.templates_frame)
+        self.templatebox = cwc.TemplatesEntry(self.templates_frame)
         self.templatebox.grid()
         self.endpointlist_frame.grid()
-        self.endpointbox = EndpointListEntry(self.endpointlist_frame)
+        self.endpointbox = cwc.EndpointListEntry(self.endpointlist_frame)
         self.endpointbox.grid()
+        print("____Plug-in configurator page has been loaded successfully")
 
 
     def onFrameConfigure(self, event):
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
     def addVariable(self, parent):
-        self.variables.append(VariableTextboxes(parent, self.variables, bd =3, relief='groove'))
+        self.variables.append(cwc.VariableTextboxes(parent, self.variables, bd =3, relief='groove'))
         self.variables[-1].grid()
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
     def addDependency(self, parent):
-        self.dependencies.append(DependencyEntry(parent, self.dependencies))
+        self.dependencies.append(cwc.DependencyEntry(parent, self.dependencies))
         self.dependencies[-1].grid()
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
@@ -606,7 +404,7 @@ class PlugInCreatePage(tk.Frame):
                 widget.grid_forget()
             del self.variables[:]
             for var in plugin['Variables']:
-                self.variables.append(VariableTextboxes(self.variables_frame, self.variables))
+                self.variables.append(cwc.VariableTextboxes(self.variables_frame, self.variables))
                 self.variables[-1].setEntryValue(var)
                 self.variables[-1].grid()
             self.mqttSubEntry.insert(1.0, plugin['MQTT Subscriptions'])
@@ -619,7 +417,7 @@ class PlugInCreatePage(tk.Frame):
                 widget.grid_forget()
             del self.dependencies[:]
             for dep in plugin['Dependencies']:
-                self.dependencies.append(DependencyEntry(self.dependencies_frame, self.dependencies))
+                self.dependencies.append(cwc.DependencyEntry(self.dependencies_frame, self.dependencies))
                 self.dependencies[-1].setEntryValue(dep)
                 self.dependencies[-1].grid()
             self.templatebox.setEntryValue(plugin['templates'])
@@ -650,252 +448,8 @@ class PlugInCreatePage(tk.Frame):
         with open(filename, 'w') as plugin_file:
             json.dump(pluginData, plugin_file)
 
-class EntryWithBrowse(tk.Frame):
-    def __init__(self, parent, Name):
-        tk.Frame.__init__(self, parent)
-        self.name = Name
-        self.var = tk.StringVar()
-        self.w = tk.Label(self, text=self.name)
-        self.e = tk.Entry(self, textvariable=self.var, width=100)
-        self.b = tk.Button(self, text="Browse", command=lambda:self.var.set(filedialog.askdirectory()))
-        self.w.grid(row=0, column=0, columnspan=3)
-        self.e.grid(row=0, column=3, columnspan=5)
-        self.b.grid(row=0, column=8, columnspan=1)
-    def getEntryValue(self):
-        print(str(self.var.get()))
-        return str(self.var.get())
-    def setEntryValue(self, value):
-        self.var.set(value)
-
-class EntryWithLabel(tk.Frame):
-    def __init__(self, parent, Name):
-        tk.Frame.__init__(self, parent)
-        self.name = Name
-        self.var = tk.StringVar()
-        self.w = tk.Label(self, text=self.name)
-        self.e = tk.Entry(self, textvariable=self.var, width=50)
-        self.w.grid(row=0, column=0, columnspan=3)
-        self.e.grid(row=0, column=3, columnspan=5)
-    def getEntryValue(self):
-        #print(str(self.var.get()))
-        return str(self.var.get())
-    def setEntryValue(self, value):
-        self.var.set(value)
-
-class VariableTextboxes(tk.Frame):
-    def __init__(self, parent, varlist,  *args, **kwargs):
-        tk.Frame.__init__(self, parent,  *args, **kwargs)
-        self.l1 = tk.Label(self, text="Variable Name - Choose a unique symbol that will be replaced by User given alias, for example: @var@ \r Leave this field empty if you don't want to expose this variable to the user.")
-        self.l2 = tk.Label(self, text="Variable Description - This text will be displayed when asking for user input for this variable")
-        self.l3 = tk.Label(self, text="Variable Initialisation - Place variable initialisation code here if needed (a variable can be a user provided alias only in your code) \r Place the @N@ token in the name of your variable to make sure this plug-in can be added multiple times. \r @N@ token will be replaced by plug-in instance number automatically. This applies to all fields expect Include.")
-        self.name = tk.StringVar()
-        self.nameBox = tk.Entry(self, textvariable=self.name, width=100)
-        self.description = tk.StringVar()
-        self.descriptionBox = tk.Entry(self, textvariable=self.description, width=100)
-        self.variableInitBox = tkst.ScrolledText(master = self, wrap   = 'word', width  = 100, height = 5)
-        self.l1.grid()
-        self.nameBox.grid()
-        self.l2.grid()
-        self.descriptionBox.grid()
-        self.l3.grid()
-        self.variableInitBox.grid()
-        self.delButton = tk.Button(self, text="Delete this Variable", bg='red', command= lambda:self.delete(varlist))
-        self.delButton.grid()
-
-    def delete(self, varlist):
-        self.grid_forget()
-        to_be_deleted = varlist.index(self)
-        print (to_be_deleted)
-        del varlist[to_be_deleted]
-
-    def getEntryValue(self):
-        result = dict()
-        result['Name'] = self.name.get()
-        result['Description'] = self.description.get()
-        result['Variable Initialisation'] = self.variableInitBox.get(1.0, tk.END)
-        return result
-
-    def setEntryValue(self, value):
-        self.name.set(value['Name'])
-        self.description.set(value['Description'])
-        self.variableInitBox.insert(1.0, value['Variable Initialisation'])
-
-class DependencyEntry(tk.Frame):
-    def __init__(self, parent, varlist):
-        #self.variablesList = varlist
-        tk.Frame.__init__(self, parent)
-        tk.Label(self, text="Dependency").grid()
-        self.dependency = tk.StringVar()
-        self.dependencyBox = tk.Entry(self, textvariable=self.dependency, width=100)
-        self.dependencyBox.grid()
-
-        self.delButton = tk.Button(self, text="Delete this Dependency", bg='red', command= lambda:self.delete(varlist))
-        self.delButton.grid()
-
-    def delete(self, varlist):
-        self.grid_forget()
-        to_be_deleted = varlist.index(self)
-        print (to_be_deleted)
-        del varlist[to_be_deleted]
-
-    def getEntryValue(self):
-        return self.dependency.get()
-
-    def setEntryValue(self, value):
-        self.dependency.set(value)
-
-class TemplatesEntry(tk.Frame):
-    def __init__(self, parent):
-        tk.Frame.__init__(self, parent)
-        templateentry = TemplateEntry(parent)
-        self.templateListFrame = tk.Frame(parent, bd=3, relief='groove')
-        self.templateListFrame.grid()
-        tk.Button(self, text="Add Template", bg='green', width=80, command=lambda: self.addTemplate()).grid()
-        #self.addTemplate()
-
-    def addTemplate(self):
-        self.template = TemplateEntry(self.templateListFrame)
-        self.template.grid()
-
-    def setEntryValue(self, value):
-        for template in value:
-            self.template = TemplateEntry(self.templateListFrame)
-            self.template.grid()
-            self.template.setEntryValue(template)
-
-    def getEntryValue(self):
-        output = list()
-        templateObjList = self.templateListFrame.winfo_children()
-        for obj in templateObjList:
-            template = dict()
-            template = obj.getEntryValue()
-            output.append(template)
-        return output
-
-class TemplateEntry(tk.Frame):
-    def __init__(self, parent):
-        tk.Frame.__init__(self, parent)
-        self.TemplateEntry = EntryWithLabel(self, "Template Name")
-        self.TemplateEntry.grid()
-        self.mappingsFrame = tk.Frame(self, bd=3, relief='groove')
-        self.mappingsFrame.grid()
-        tk.Button(self, text="Add Mapping", bg='green', width=40, command=lambda: self.addMappings()).grid()
-        self.delButton = tk.Button(self, text="Delete this item template", width=80, bg='red', command= lambda:self.delete())
-        self.delButton.grid()
-        #self.addMappings()
-
-    def delete(self):
-        self.grid_forget()
-        self.destroy()
-
-    def getEntryValue(self):
-        output = dict()
-        mappinglist = list()
-        output['name'] = self.TemplateEntry.getEntryValue()
-        mappingsWidgetList = self.mappingsFrame.winfo_children()
-        for widget in mappingsWidgetList:
-            mapping = dict()
-            mapping = widget.getEntryValue()
-            mappinglist.append(mapping)
-        output['mappings'] = mappinglist
-        return output
-
-    def setEntryValue(self, value):
-        self.TemplateEntry.setEntryValue(value['name'])
-        for mapping in value['mappings']:
-            mappingBox = self.addMappings()
-            mappingBox.setEntryValue(mapping)
-
-    def addMappings(self):
-        self.mappingsentry = MappingsEntry(self.mappingsFrame)
-        self.mappingsentry.grid()
-        return self.mappingsentry
-
-class MappingsEntry(tk.Frame):
-    def __init__(self, parent):
-        tk.Frame.__init__(self, parent)
-        tk.Label(self, text="Mapping - Pin:").grid()
-        self.mappingPinBox = EntryWithLabel(self, "Mapping - Pin")
-        self.mappingEndpointBox = EntryWithLabel(self, "Mapping - Endpoint")
-        self.mappingPinBox.grid(sticky='e')
-        self.mappingEndpointBox.grid(sticky='e')
-
-        self.delButton = tk.Button(self, text="Delete this mapping", bg='red', width=40, command= lambda:self.delete())
-        self.delButton.grid()
-
-    def delete(self):
-        self.grid_forget()
-        self.destroy()
-
-    def getEntryValue(self):
-        output = dict()
-        output['name'] = self.mappingPinBox.getEntryValue()
-        output['endpoint'] = self.mappingEndpointBox.getEntryValue()
-        return output
-
-    def setEntryValue(self, value):
-        self.mappingPinBox.setEntryValue(value['name'])
-        self.mappingEndpointBox.setEntryValue(value['endpoint'])
-
-class EndpointEntry(tk.Frame):
-    def __init__(self, parent,  *args, **kwargs):
-        tk.Frame.__init__(self, parent,  *args, **kwargs)
-        self.nameBox = EntryWithLabel(self, "Name")
-        self.outputBox = EntryWithLabel(self, "Output")
-        self.rangeBox = EntryWithLabel(self, "Range")
-        self.nameBox.grid(sticky = 'e')
-        self.outputBox.grid(sticky = 'e')
-        self.rangeBox.grid(sticky = 'e')
-        tk.Button(self, text="Delete this endpoint", bg='red', width=40, command= lambda:self.delete()).grid()
-
-    def delete(self):
-        self.grid_forget()
-        self.destroy()
-
-    def getEntryValue(self):
-        output = dict()
-        output['name'] = self.nameBox.getEntryValue()
-        output['output'] = self.outputBox.getEntryValue()
-        output['range'] = self.rangeBox.getEntryValue()
-        return output
-
-    def setEntryValue(self, value):
-        print("endpoint entries were set")
-        self.nameBox.setEntryValue(value['name'])
-        self.outputBox.setEntryValue(value['output'])
-        self.rangeBox.setEntryValue(value['range'])
-
-class EndpointListEntry(tk.Frame):
-    def __init__(self, parent):
-         tk.Frame.__init__(self, parent)
-         tk.Label(parent, text="Endpoints").grid()
-         self.endpointlistframe = tk.Frame(parent, bd=3, relief='groove')
-         self.endpointlistframe.grid()
-         tk.Button(parent, text="Add new endpoint", bg='green', width=80, command= lambda:self.addEndpoint()).grid()
-         #self.addEndpoint()
-
-    def addEndpoint(self):
-        endpointEntry = EndpointEntry(self.endpointlistframe, bd=3, relief='groove')
-        endpointEntry.grid()
-
-    def getEntryValue(self):
-        output = list()
-        ep_entries = self.endpointlistframe.winfo_children()
-        for ep in ep_entries:
-            data = dict()
-            data = ep.getEntryValue()
-            output.append(data)
-        return output
-
-    def setEntryValue(self, value):
-        for entry in value:
-            print(entry['name'])
-            endpointEntry = EndpointEntry(self.endpointlistframe)
-            endpointEntry.grid()
-            endpointEntry.setEntryValue(entry)
-
 
 if __name__ == "__main__":
     pluginList = []
-    app = SampleApp()
+    app = MainApp()
     app.mainloop()
