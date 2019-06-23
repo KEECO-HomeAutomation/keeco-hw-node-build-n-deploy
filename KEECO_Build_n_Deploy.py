@@ -180,7 +180,6 @@ class BuildPage(tk.Frame):
         self.tree = ttk.Treeview(self, height=20, selectmode='browse')
         self.vsb = ttk.Scrollbar(self, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=self.vsb.set)
-        self.vsb.grid(column=1, sticky='e')
 
         self.tree["columns"]=("aliases","type","dependencies")
         self.tree.column("aliases", width=150, minwidth=150, stretch=tk.NO)
@@ -199,7 +198,8 @@ class BuildPage(tk.Frame):
                 #print(str(idx) + var['Name'] + var['Alias'])
                 if (var['Name'] != ""):
                     self.tree.insert(self.treeitems[idx], "end", text=var['Name'], values=(var['Alias'],"",""))
-        self.tree.grid()
+        self.tree.grid(column=0, row=4)
+        self.vsb.grid(column=1, row=4, sticky='ns')
         tk.Button(self, text="Delete Selected Plugin", width=60, command=lambda: self.deletePlugin(self.tree)).grid()
         tk.Button(self, text="Check Dependencies", width=60, command=lambda: self.bb.installDependencies()).grid()
         tk.Button(self, text="Generate Code", width=60, command=lambda: self.cg.fullCodeGenProcess(self.hwnode_name.get())).grid()
