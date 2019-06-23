@@ -1,3 +1,7 @@
+#KEECO HW Node - Code Generator class
+#Use the fullCodeGenProcess(self, name) function to create code based on temporary files generated in previous steps
+
+
 import json
 from os.path import isfile, isdir, join, dirname, realpath, split
 import shutil

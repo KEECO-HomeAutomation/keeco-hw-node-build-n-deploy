@@ -14,9 +14,9 @@ from os import listdir, mkdir, system, name
 from os.path import isfile, isdir, join, dirname, realpath, split
 from tkinter import filedialog
 import tkinter.scrolledtext as tkst
-import CodeGeneratorClass as cgc
-import BinaryBuilderClass as bbc
-import CustomWidgetClasses as cwc
+import classes.CodeGeneratorClass as cgc
+import classes.BinaryBuilderClass as bbc
+import classes.CustomWidgetClasses as cwc
 
 
 class MainApp(tk.Tk):

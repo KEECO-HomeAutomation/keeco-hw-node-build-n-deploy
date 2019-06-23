@@ -1,3 +1,6 @@
+#KEECO HW Node - Binary and SPIFFS builder class
+#Use the fullBuildProcess() function to build application and SPIFFS files
+
 import json
 from os.path import isfile, isdir, join, dirname, realpath, split
 import shutil

@@ -1,3 +1,6 @@
+#KEECO HW Node - Custom Widget Class
+#Custom widget classes used in the KEECO HW Node build and deploy application
+
 import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog
