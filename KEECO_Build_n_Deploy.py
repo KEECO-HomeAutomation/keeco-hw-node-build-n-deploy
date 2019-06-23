@@ -259,11 +259,18 @@ class DeployPage(tk.Frame):
         with open('settings.json') as json_file:
             settings_data = json.load(json_file)
 
-        print ("esptool.exe --port " + self.wemosSerialPort + " --baud 921600 write_flash 0x200000 " +  join(settings_data['buildFolderPath'],"out.spiffs"))
-        res = system("esptool.exe --port " + self.wemosSerialPort + " --baud 921600 write_flash 0x200000 " +  join(settings_data['buildFolderPath'],"out.spiffs"))
 
-        print ("esptool.exe --port " + self.wemosSerialPort + " --baud 921600 write_flash 0x000000 " +  join(settings_data['buildFolderPath'],"KEECO_hwNode_ESP8266.ino.bin"))
-        res = system("esptool.exe --port " + self.wemosSerialPort + " --baud 921600 write_flash 0x000000 " +  join(settings_data['buildFolderPath'],"KEECO_hwNode_ESP8266.ino.bin"))
+        cmd_string = "esptool.exe --port " + self.wemosSerialPort + " --baud 512000 write_flash 0x000000 " +  join(settings_data['buildFolderPath'],"KEECO_hwNode_ESP8266.ino.bin") + " 0x300000 " + join(settings_data['buildFolderPath'],"out.spiffs")
+        print(cmd_string)
+        #cmd_string = "esptool.exe --port " + self.wemosSerialPort + " --baud 921600 write_flash 0x200000 " +  join(settings_data['buildFolderPath'],"out.spiffs")
+        #print (cmd_string)
+        #res = system(cmd_string)
+        #print("Result: " + res)
+
+        #cmd_string = "esptool.exe --port " + self.wemosSerialPort + " --baud 921600 write_flash 0x000000 " +  join(settings_data['buildFolderPath'],"KEECO_hwNode_ESP8266.ino.bin")
+        #print(cmd_string)
+        #res = system(cmd_string)
+        #print("Result: " + res)
 
 class ConfigPage(tk.Frame):
     def __init__(self, master):

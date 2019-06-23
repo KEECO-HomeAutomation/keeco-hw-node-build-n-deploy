@@ -24,8 +24,9 @@ class BinaryBuilder():
 
     def buildBinary(self):
         system("cd " + self.fullResultFolderPath + "&" + "dir")
-        print("arduino-cli.exe compile --fqbn esp8266:esp8266:d1_mini " + self.fullResultFolderPath + " --build-path " + self.settings_data['buildFolderPath'])
-        res = system("arduino-cli.exe compile --fqbn esp8266:esp8266:d1_mini " + self.fullResultFolderPath + " --build-path " + self.settings_data['buildFolderPath'])
+        cmd_string = "arduino-cli.exe compile --fqbn esp8266:esp8266:d1_mini " + self.fullResultFolderPath + " --build-path " + self.settings_data['buildFolderPath']
+        print(cmd_string)
+        res = system(cmd_string)
         if (res == 0):
             print("CODE BUILD SUCCESSFULLY FINISHED! You can deploy your binary now!")
         else:
@@ -33,9 +34,10 @@ class BinaryBuilder():
 
     def buildSPIFFS(self):
         fullDataFolderPath = join(self.settings_data['templateFolderPath'],"data")
-        fullDataResultPath = join(self.fullResultFolderPath, "out.spiffs")
-        print("mkspiffs -c " + fullDataFolderPath + " -p 256 -b 8192 -s 2076672 " + fullDataResultPath)
-        res = system("mkspiffs -c " + fullDataFolderPath + " -p 256 -b 8192 -s 2076672 " + fullDataResultPath)
+        fullDataResultPath = join(self.settings_data['buildFolderPath'], "out.spiffs")
+        cmd_string = "mkspiffs -c " + fullDataFolderPath + " -s 1048576 " + fullDataResultPath
+        print(cmd_string)
+        res = system(cmd_string)
         if (res == 0):
             print("2M SPIFFS BUILD SUCCESSFULLY FINISHED! You can deploy your binary now!")
         else:
