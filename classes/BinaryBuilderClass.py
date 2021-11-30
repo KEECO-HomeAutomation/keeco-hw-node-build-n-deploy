@@ -5,6 +5,7 @@ import json
 from os.path import isfile, isdir, join, dirname, realpath, split
 import shutil
 import errno
+import subprocess
 from os import listdir, mkdir, system, name
 
 class BinaryBuilder():
@@ -24,7 +25,9 @@ class BinaryBuilder():
 
     def buildBinary(self):
         system("cd " + self.fullResultFolderPath + "&" + "dir")
-        cmd_string = "arduino-cli.exe compile --fqbn esp8266:esp8266:d1_mini " + self.fullResultFolderPath + " --build-path " + self.settings_data['buildFolderPath']
+        #cmd_string = "arduino-cli.exe compile --fqbn esp8266:esp8266:d1_mini " + self.fullResultFolderPath + " --build-path " + self.settings_data['buildFolderPath']
+        cmd_string = "arduino-cli.exe compile --fqbn=esp8266:esp8266:d1_mini:xtal=80,vt=flash,exception=disabled,eesz=4M1M,ip=lm2f,dbg=Serial,lvl=COREWIFIHTTP_UPDATEUPDATEROTAOOM,wipe=none,baud=921600 " + self.fullResultFolderPath + " --build-path " + self.settings_data['buildFolderPath']
+        #fqbn=esp8266:esp8266:d1_mini:xtal=80,vt=flash,exception=disabled,eesz=4M1M,ip=lm2f,dbg=Serial,lvl=COREWIFIHTTP_UPDATEUPDATEROTAOOM,wipe=none,baud=921600
         print(cmd_string)
         res = system(cmd_string)
         if (res == 0):
@@ -35,11 +38,11 @@ class BinaryBuilder():
     def buildSPIFFS(self):
         fullDataFolderPath = join(self.settings_data['templateFolderPath'],"data")
         fullDataResultPath = join(self.settings_data['buildFolderPath'], "out.spiffs")
-        cmd_string = "mkspiffs -c " + fullDataFolderPath + " -s 1048576 " + fullDataResultPath
+        cmd_string = "mkspiffs -c " + fullDataFolderPath + " -b 8192 -p 256 -s 0xFB000 " + fullDataResultPath
         print(cmd_string)
         res = system(cmd_string)
         if (res == 0):
-            print("2M SPIFFS BUILD SUCCESSFULLY FINISHED! You can deploy your binary now!")
+            print("1M SPIFFS BUILD SUCCESSFULLY FINISHED! You can deploy your binary now!")
         else:
             print("SPIFFS Build was not successful! Error code: " + str(res) + " For details see the console above...")
 

@@ -155,7 +155,8 @@ class CodeGenerator():
     def replaceKeywordWithCodeMQTT(self, src, keyword, array):
         tempreplacement = ""
         for element in array[:-1]:
-            tempreplacement = tempreplacement + element + ',' + "\r"
+            if ("node" in element):
+                tempreplacement = tempreplacement + element + ',' + "\r"
         tempreplacement = tempreplacement + array[-1] + "\r"
         num_of_MQTT_topics = tempreplacement.count(',')
         result = src.replace(keyword,tempreplacement)
